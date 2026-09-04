@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
 
     CORS_ORIGINS: str = (
-        "http://localhost:5173, https://netland-crm.netlify.app, http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173,http://localhost:3000"
+        "http://localhost:5173, http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173,http://localhost:3000"
     )
 
     @property
