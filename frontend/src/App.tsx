@@ -6,9 +6,13 @@ import { WhatsAppFloat } from "./components/layout/WhatsAppFloat";
 import { PageLoader } from "./components/ui/PageLoader";
 import { ToastProvider } from "./components/ui/Toast";
 import { AuthProvider, useAuth } from "./features/admin/AuthContext";
-
-const SUPER_ADMIN_ROLES = ["SUPER_ADMIN"];
-const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN"];
+import {
+  SUPER_ADMIN_ROLES,
+  ADMIN_ROLES,
+  SALES_ROLES,
+  COLLECTIONS_ROLES,
+  OWNERS_ROLES,
+} from "./lib/constants";
 
 function RequireRole({ roles, children }: { roles: string[]; children: ReactNode }) {
   const { user } = useAuth();
@@ -47,6 +51,28 @@ const AdminVisits = lazy(() => import("./features/admin/pages/Visits"));
 const AdminMedia = lazy(() => import("./features/admin/pages/Media"));
 const AdminUsers = lazy(() => import("./features/admin/pages/Users"));
 const AdminSiteSettings = lazy(() => import("./features/admin/pages/SiteSettings"));
+const AdminPlanEditor = lazy(() => import("./features/admin/pages/PlanEditor"));
+const AdminPlanImport = lazy(() => import("./features/admin/pages/PlanImport"));
+
+// Módulo de Propietarios y Cobranzas
+const OwnersPage = lazy(() => import("./features/owners/pages/OwnersPage"));
+const OwnerDetailPage = lazy(
+  () => import("./features/owners/pages/OwnerDetailPage")
+);
+const ContractsPage = lazy(() => import("./features/owners/pages/ContractsPage"));
+const ContractDetailPage = lazy(
+  () => import("./features/owners/pages/ContractDetailPage")
+);
+const PaymentsPage = lazy(() => import("./features/owners/pages/PaymentsPage"));
+const PaymentDetailPage = lazy(
+  () => import("./features/owners/pages/PaymentDetailPage")
+);
+const CollectionsPage = lazy(() => import("./features/owners/pages/CollectionsPage"));
+const ImportOwnersPage = lazy(
+  () => import("./features/owners/pages/ImportOwnersPage")
+);
+const SalesPage = lazy(() => import("./features/owners/pages/SalesPage"));
+const DataImportPage = lazy(() => import("./features/owners/pages/DataImportPage"));
 
 export default function App() {
   return (
@@ -86,6 +112,22 @@ export default function App() {
               element={
                 <RequireRole roles={ADMIN_ROLES}>
                   <AdminProjectGallery />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="proyectos/:id/plan-editar"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <AdminPlanEditor />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="proyectos/:id/plan-importar"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <AdminPlanImport />
                 </RequireRole>
               }
             />
@@ -139,6 +181,86 @@ export default function App() {
               element={
                 <RequireRole roles={SUPER_ADMIN_ROLES}>
                   <AdminUsers />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="propietarios"
+              element={
+                <RequireRole roles={OWNERS_ROLES}>
+                  <OwnersPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="propietarios/importar"
+              element={
+                <RequireRole roles={OWNERS_ROLES}>
+                  <ImportOwnersPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="propietarios/:id"
+              element={
+                <RequireRole roles={OWNERS_ROLES}>
+                  <OwnerDetailPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="contratos"
+              element={
+                <RequireRole roles={OWNERS_ROLES}>
+                  <ContractsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="contratos/:id"
+              element={
+                <RequireRole roles={OWNERS_ROLES}>
+                  <ContractDetailPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="ventas"
+              element={
+                <RequireRole roles={SALES_ROLES}>
+                  <SalesPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="importacion"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <DataImportPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="pagos"
+              element={
+                <RequireRole roles={COLLECTIONS_ROLES}>
+                  <PaymentsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="pagos/:id"
+              element={
+                <RequireRole roles={COLLECTIONS_ROLES}>
+                  <PaymentDetailPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="cobranzas"
+              element={
+                <RequireRole roles={COLLECTIONS_ROLES}>
+                  <CollectionsPage />
                 </RequireRole>
               }
             />

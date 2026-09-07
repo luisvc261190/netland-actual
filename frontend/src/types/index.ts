@@ -214,6 +214,11 @@ export interface DashboardStats {
   advisors_total: number;
   quotes_total: number;
   leads_by_project: { project: string; count: number }[];
+  owners_total: number;
+  contracts_total: number;
+  contracts_active: number;
+  pending_balance: number;
+  overdue_debt: number;
 }
 
 export interface QuoteInput {

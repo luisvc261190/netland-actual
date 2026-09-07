@@ -19,11 +19,29 @@ from sqlalchemy.sql import func
 
 from app.core.database import Base
 
+# Importar modelos del módulo de propietarios
+from app.domain.owners_models import (
+    Owner,
+    PropertyOwnership,
+    Contract,
+    CashPayment,
+    FinancingPlan,
+    Installment,
+    Payment,
+    PaymentAllocation,
+    ContractDocument,
+    ImportBatch,
+    ImportError,
+)
+
 
 class Role(str, Enum):
     SUPER_ADMIN = "SUPER_ADMIN"
     ADMIN = "ADMIN"
     ASESOR = "ASESOR"
+    VENTAS = "VENTAS"
+    COBRANZAS = "COBRANZAS"
+    SUPERVISOR = "SUPERVISOR"
 
 
 class LotStatus(str, Enum):

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.domain.models import Advisor, Lead, Lot, Project, Quote, User, Visit
+from app.domain.owners_models import Contract, FinancingPlan, Installment, Owner, Payment
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -69,6 +70,37 @@ def dashboard_stats(
         for project in db.query(Project).order_by(Project.name).all()
     ]
 
+    # Métricas del módulo de Propietarios y Cobranzas (solo para administración)
+    owners_total = 0
+    contracts_total = 0
+    contracts_active = 0
+    pending_balance = 0.0
+    overdue_debt = 0.0
+    if is_admin:
+        owners_total = db.query(func.count(Owner.id)).scalar() or 0
+        contracts_total = db.query(func.count(Contract.id)).scalar() or 0
+        contracts_active = (
+            db.query(func.count(Contract.id))
+            .filter(Contract.status == "activo")
+            .scalar()
+            or 0
+        )
+        overdue = (
+            db.query(func.sum(Installment.balance))
+            .filter(Installment.status == "vencida")
+            .scalar()
+            or 0
+        )
+        financed_pending = (
+            db.query(func.sum(FinancingPlan.outstanding_balance))
+            .join(Contract)
+            .filter(Contract.status == "activo")
+            .scalar()
+            or 0
+        )
+        overdue_debt = float(overdue)
+        pending_balance = float(financed_pending)
+
     return {
         "projects_total": db.query(func.count(Project.id)).scalar() or 0,
         "projects_published": db.query(func.count(Project.id)).filter(Project.is_published.is_(True)).scalar() or 0,
@@ -86,4 +118,9 @@ def dashboard_stats(
         "advisors_total": db.query(func.count(Advisor.id)).scalar() or 0,
         "quotes_total": quotes_count.scalar() or 0,
         "leads_by_project": leads_by_project,
+        "owners_total": owners_total,
+        "contracts_total": contracts_total,
+        "contracts_active": contracts_active,
+        "pending_balance": pending_balance,
+        "overdue_debt": overdue_debt,
     }

@@ -2,17 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Pencil, Plus, Trash2, UserRoundCheck } from "lucide-react";
 import { api } from "../../../lib/api";
+import { ROLE_LABELS, ROLE_COLORS } from "../../../lib/constants";
 import type { Advisor, User } from "../../../types";
 import { PageHeader, Button, Card, Field, Input, Select, Table, Badge } from "../ui";
 import { Modal } from "../../../components/ui/Modal";
 import { useToast } from "../../../components/ui/Toast";
 import { EmptyState } from "../../../components/ui/EmptyState";
 
-const roleColors: Record<string, string> = {
-  SUPER_ADMIN: "#f5a623",
-  ADMIN: "#0d7a44",
-  ASESOR: "#1e40af",
-};
+const roleColors: Record<string, string> = ROLE_COLORS;
 
 export default function AdminUsers() {
   const queryClient = useQueryClient();
@@ -98,7 +95,7 @@ export default function AdminUsers() {
               <td className="px-5 py-3 font-medium text-netland-dark">{user.name}</td>
               <td className="px-5 py-3 text-netland-muted">{user.email}</td>
               <td className="px-5 py-3">
-                <Badge color={roleColors[user.role] ?? "#6b7280"}>{user.role}</Badge>
+                <Badge color={roleColors[user.role] ?? "#6b7280"}>{ROLE_LABELS[user.role] ?? user.role}</Badge>
               </td>
               <td className="px-5 py-3 text-sm text-netland-muted">
                 {user.advisor_name ? (
@@ -164,9 +161,11 @@ export default function AdminUsers() {
           </Field>
           <Field label="Rol">
             <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-              <option value="ASESOR">Asesor</option>
-              <option value="ADMIN">Administrador</option>
-              <option value="SUPER_ADMIN">Super administrador</option>
+              {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
             </Select>
           </Field>
           {!editing && form.role === "ASESOR" && (

@@ -47,6 +47,9 @@ class Settings(BaseSettings):
 
     COMPANY_WHATSAPP: str = "51985928062"
     COMPANY_PHONE: str = "985928062"
+    COMPANY_NAME: str = "NETLAND Corporación Inmobiliaria"
+    COMPANY_RUC: str = "20600000000"
+    COMPANY_ADDRESS: str = "Av. Los Presidentes, Lambayeque - Chiclayo"
 
     # Plan Import Settings
     MAX_PLAN_PDF_SIZE_MB: int = 30

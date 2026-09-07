@@ -11,16 +11,19 @@ import {
   YAxis,
 } from "recharts";
 import {
+  AlertTriangle,
   CalendarDays,
+  FileSignature,
   FolderKanban,
   MessageSquare,
   Milestone,
   Sparkles,
+  UserCheck,
   Users,
 } from "lucide-react";
 import { api } from "../../../lib/api";
 import type { DashboardStats } from "../../../types";
-import { LEAD_STATUS_LABELS, LOT_STATUS_LABELS, LOT_STATUS_COLORS, CAPTURED_SOURCES } from "../../../lib/constants";
+import { LEAD_STATUS_LABELS, LOT_STATUS_LABELS, LOT_STATUS_COLORS, CAPTURED_SOURCES, formatSoles } from "../../../lib/constants";
 import { PageHeader, Card, StatCard, Table } from "../ui";
 import { useAuth } from "../AuthContext";
 import { CoreSpinLoader } from "../../../components/ui/CoreSpinLoader";
@@ -90,6 +93,10 @@ export default function Dashboard() {
         <StatCard label="Lotes disponibles" value={stats.lots_available} icon={<Milestone className="h-4 w-4" />} accent="#16a34a" />
         <StatCard label="Lotes reservados" value={stats.lots_reserved} icon={<Milestone className="h-4 w-4" />} accent="#eab308" />
         <StatCard label="Lotes vendidos" value={stats.lots_sold} icon={<Milestone className="h-4 w-4" />} accent="#dc2626" />
+        <StatCard label="Propietarios" value={stats.owners_total} icon={<UserCheck className="h-4 w-4" />} accent="#0d7a44" />
+        <StatCard label="Contratos activos" value={stats.contracts_active} icon={<FileSignature className="h-4 w-4" />} accent="#0891b2" />
+        <StatCard label="Saldo por cobrar" value={formatSoles(stats.pending_balance)} icon={<AlertTriangle className="h-4 w-4" />} accent="#f59e0b" />
+        <StatCard label="Deuda vencida" value={formatSoles(stats.overdue_debt)} icon={<AlertTriangle className="h-4 w-4" />} accent="#dc2626" />
         <StatCard label="Leads nuevos" value={stats.leads_new} icon={<MessageSquare className="h-4 w-4" />} accent="#2563eb" />
         <StatCard label="Visitas programadas" value={stats.leads_visit_scheduled} icon={<CalendarDays className="h-4 w-4" />} accent="#0891b2" />
         <StatCard label="Asesores" value={stats.advisors_total} icon={<Users className="h-4 w-4" />} />

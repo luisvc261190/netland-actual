@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_admin
+from app.core.pricing import compute_payment_plan, lot_gross_price
 from app.domain.models import (
     Advisor,
     Client,
@@ -162,12 +163,11 @@ def _apply_quote_values(quote: Quote, payload, lot: Lot):
 
     if price_per_m2 is not None and area:
         price_per_m2_value = round(float(price_per_m2), 2)
-        lot_price = round(
-            area * price_per_m2_value
-            + esquina_surcharge
-            + frente_parque_surcharge
-            + frente_a_pista_surcharge,
-            2,
+        lot_price = lot_gross_price(
+            area * price_per_m2_value,
+            esquina_surcharge=esquina_surcharge,
+            frente_parque_surcharge=frente_parque_surcharge,
+            frente_a_pista_surcharge=frente_a_pista_surcharge,
         )
     elif payload.lot_price:
         lot_price = round(float(payload.lot_price), 2)
@@ -184,23 +184,19 @@ def _apply_quote_values(quote: Quote, payload, lot: Lot):
             round(float(lot.price_per_m2), 2) if lot.price_per_m2 else None
         )
 
-    discount_amount = 0
-    if payload.discount_type == "percentage":
-        discount_amount = lot_price * (float(payload.discount_value or 0) / 100)
-    elif payload.discount_type == "fixed":
-        discount_amount = float(payload.discount_value or 0)
-
-    final_price = max(lot_price - discount_amount, 0)
-
-    initial = float(payload.initial_payment or 0)
-    installments = int(payload.installments or 12)
-
-    if payload.payment_type == "cash":
-        installments = 0
-        installment_value = 0
-    else:
-        balance = max(final_price - initial, 0)
-        installment_value = round(balance / installments, 2) if installments > 0 else 0
+    plan = compute_payment_plan(
+        gross_price=lot_price,
+        discount_type=payload.discount_type,
+        discount_value=payload.discount_value,
+        payment_type=payload.payment_type,
+        initial_payment=float(payload.initial_payment or 0),
+        installments=int(payload.installments or 12),
+    )
+    discount_amount = plan["discount_amount"]
+    final_price = plan["final_price"]
+    initial = plan["initial_payment"]
+    installments = plan["installment_count"]
+    installment_value = plan["installment_value"]
 
     quote.project_id = lot.project_id
     quote.lot_id = lot.id

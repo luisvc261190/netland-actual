@@ -27,11 +27,11 @@ export function Modal({ open, onClose, children, title, wide }: ModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className={`max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl ${
+        className={`mx-4 max-h-[92vh] w-full overflow-y-auto rounded-2xl bg-white shadow-2xl ${
           wide ? "sm:max-w-3xl" : "sm:max-w-md"
         }`}
         onClick={(e) => e.stopPropagation()}

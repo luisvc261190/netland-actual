@@ -86,3 +86,27 @@ export const CAPTURED_SOURCE_COLORS: Record<string, string> = {
   referido: "#db2777",
   whatsapp: "#16a34a",
 };
+
+export const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: "Super Administrador",
+  ADMIN: "Administrador",
+  ASESOR: "Asesor",
+  VENTAS: "Ventas",
+  COBRANZAS: "Cobranzas",
+  SUPERVISOR: "Supervisor",
+};
+
+export const ROLE_COLORS: Record<string, string> = {
+  SUPER_ADMIN: "#f5a623",
+  ADMIN: "#0d7a44",
+  ASESOR: "#1e40af",
+  VENTAS: "#0891b2",
+  COBRANZAS: "#db2777",
+  SUPERVISOR: "#4f46e5",
+};
+
+export const SUPER_ADMIN_ROLES = ["SUPER_ADMIN"];
+export const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN"];
+export const SALES_ROLES = ["SUPER_ADMIN", "ADMIN", "VENTAS", "SUPERVISOR"];
+export const COLLECTIONS_ROLES = ["SUPER_ADMIN", "ADMIN", "COBRANZAS", "SUPERVISOR"];
+export const OWNERS_ROLES = ["SUPER_ADMIN", "ADMIN", "VENTAS", "COBRANZAS", "SUPERVISOR"];

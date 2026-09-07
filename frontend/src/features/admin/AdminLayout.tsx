@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Navigate, Outlet } from "react-router-dom";
 import {
+  BadgePercent,
   CalendarDays,
   ClipboardList,
   FileText,
@@ -13,11 +14,17 @@ import {
   Quote as QuoteIcon,
   Settings,
   Sparkles,
+  UploadCloud,
   Users,
   X,
+  DollarSign,
+  UserCheck,
+  FileSignature,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { Logo } from "../../components/Logo";
+import { ROLE_LABELS } from "../../lib/constants";
 
 const navItems = [
   {
@@ -25,7 +32,7 @@ const navItems = [
     label: "Dashboard",
     icon: LayoutDashboard,
     end: true,
-    roles: ["SUPER_ADMIN", "ADMIN", "ASESOR"],
+    roles: ["SUPER_ADMIN", "ADMIN", "ASESOR", "VENTAS", "COBRANZAS", "SUPERVISOR"],
   },
   {
     to: "/admin/proyectos",
@@ -52,9 +59,45 @@ const navItems = [
     roles: ["SUPER_ADMIN", "ADMIN", "ASESOR"],
   },
   {
+    to: "/admin/ventas",
+    label: "Ventas",
+    icon: BadgePercent,
+    roles: ["SUPER_ADMIN", "ADMIN", "VENTAS", "SUPERVISOR"],
+  },
+  {
     to: "/admin/asesores",
     label: "Asesores",
     icon: Users,
+    roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    to: "/admin/propietarios",
+    label: "Propietarios",
+    icon: UserCheck,
+    roles: ["SUPER_ADMIN", "ADMIN", "VENTAS", "COBRANZAS", "SUPERVISOR"],
+  },
+  {
+    to: "/admin/contratos",
+    label: "Contratos",
+    icon: FileSignature,
+    roles: ["SUPER_ADMIN", "ADMIN", "VENTAS", "COBRANZAS", "SUPERVISOR"],
+  },
+  {
+    to: "/admin/pagos",
+    label: "Pagos",
+    icon: Wallet,
+    roles: ["SUPER_ADMIN", "ADMIN", "COBRANZAS", "SUPERVISOR"],
+  },
+  {
+    to: "/admin/cobranzas",
+    label: "Cobranzas",
+    icon: DollarSign,
+    roles: ["SUPER_ADMIN", "ADMIN", "COBRANZAS", "SUPERVISOR"],
+  },
+  {
+    to: "/admin/importacion",
+    label: "Importación",
+    icon: UploadCloud,
     roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
@@ -67,7 +110,7 @@ const navItems = [
     to: "/admin/cotizaciones",
     label: "Cotizaciones",
     icon: QuoteIcon,
-    roles: ["SUPER_ADMIN", "ADMIN", "ASESOR"],
+    roles: ["SUPER_ADMIN", "ADMIN", "ASESOR", "VENTAS"],
   },
   {
     to: "/admin/visitas",
@@ -159,7 +202,7 @@ export default function AdminLayout() {
               </p>
 
               <p className="text-xs text-white/60">
-                {user?.role}
+                {ROLE_LABELS[user?.role ?? ""] ?? user?.role}
               </p>
             </div>
           </div>

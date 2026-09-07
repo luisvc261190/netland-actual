@@ -94,7 +94,7 @@ export default function ProjectDetail() {
           const isCloudinary = mainVideo.url.includes("cloudinary") || mainVideo.url.includes(".mp4") || mainVideo.url.includes(".webm");
           
           return videoId || isCloudinary ? (
-            <div className="absolute inset-0">
+            <div className="absolute inset-0 z-20 sm:z-auto">
               {videoId ? (
                 <iframe
                   src={`https://www.youtube.com/embed/${videoId}?autoplay=0&mute=0&loop=0&controls=1&modestbranding=1`}
@@ -112,6 +112,7 @@ export default function ProjectDetail() {
                   className="h-full w-full object-cover"
                 />
               )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent sm:hidden" />
             </div>
           ) : (
             <div className="absolute inset-0">
