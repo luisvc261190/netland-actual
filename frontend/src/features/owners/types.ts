@@ -66,6 +66,7 @@ export interface Contract {
   payment_modality: "contado" | "financiado";
   status: "activo" | "cancelado" | "resuelto" | "anulado";
   contract_pdf_url?: string;
+  lot_pdf_url?: string;
   is_imported: boolean;
   notes?: string;
   created_at: string;

@@ -50,6 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    const token = authStorage.getToken();
+    // Revoca el token en el servidor para invalidarlo de inmediato (best-effort).
+    if (token) {
+      fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {
+        /* Si falla, igual se revoca al expirar el token localmente. */
+      });
+    }
     authStorage.clear();
     setUser(null);
   }, []);

@@ -752,6 +752,12 @@ def get_contract_pdf(
             contract.updated_by = current_user.id
             db.commit()
 
+        # Almacenar la URL en el lote para servirla directamente en futuras descargas
+        lot = contract.lot
+        if lot is not None and not lot.contract_pdf_url:
+            lot.contract_pdf_url = file_url
+            db.commit()
+
     return Response(
         content=pdf,
         media_type="application/pdf",

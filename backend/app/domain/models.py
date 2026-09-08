@@ -199,6 +199,8 @@ class Lot(Base):
     location_bonus_amount = Column(Numeric(12, 2), nullable=True)  # Precio extra por ubicación
     normal_price_usd = Column(Numeric(12, 2), nullable=True)  # Precio normal US $
     normal_price_soles = Column(Numeric(12, 2), nullable=True)  # Precio Normal S/
+    # URL del PDF del contrato asociado a este lote (generado una sola vez)
+    contract_pdf_url = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

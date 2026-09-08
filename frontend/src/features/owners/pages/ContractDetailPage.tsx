@@ -230,6 +230,12 @@ export default function ContractDetailPage() {
   const downloadContractPdf = async () => {
     setPdfLoading(true);
     try {
+      // Si el lote ya tiene una URL almacenada, se abre directamente sin regenerar el PDF
+      const pdfUrl = contract?.lot_pdf_url || contract?.contract_pdf_url;
+      if (pdfUrl) {
+        window.open(pdfUrl, "_blank");
+        return;
+      }
       await downloadPdf(`/contracts/${contractId}/pdf`);
     } catch (e: unknown) {
       toast(e instanceof Error ? e.message : "Error al descargar el contrato", "error");

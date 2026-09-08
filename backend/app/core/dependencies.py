@@ -4,7 +4,7 @@ from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, is_token_revoked
 from app.domain.models import Role, User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -23,6 +23,10 @@ def get_current_user(
         payload = decode_access_token(token)
         user_id = int(payload.get("sub", ""))
     except (InvalidTokenError, ValueError, TypeError):
+        raise credentials_error
+
+    # Rechazar tokens que hayan sido revocados al cerrar sesión.
+    if is_token_revoked(token):
         raise credentials_error
 
     user = db.get(User, user_id)

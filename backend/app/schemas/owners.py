@@ -185,6 +185,7 @@ class ContractResponse(ContractBase):
     contract_number: str
     owner_id: int
     contract_pdf_url: Optional[str] = None
+    lot_pdf_url: Optional[str] = None
     is_imported: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -417,6 +418,8 @@ class SaleItem(BaseModel):
     paid_amount: Decimal
     pending_amount: Decimal
     collection_status: str
+    lot_pdf_url: Optional[str] = None
+    contract_pdf_url: Optional[str] = None
 
     class Config:
         from_attributes = True

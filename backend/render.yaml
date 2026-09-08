@@ -9,8 +9,12 @@ services:
         value: 3.11.0
       - key: DATABASE_URL
         sync: false
-      - key: SECRET_KEY
+      - key: JWT_SECRET
         generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: ENABLE_DOCS
+        value: "false"
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY

@@ -79,9 +79,12 @@ export default function SalesPage() {
   const startIndex = (page - 1) * pageSize;
   const paginatedItems = sales.slice(startIndex, startIndex + pageSize);
 
-  const downloadSalePdf = async (contractId: number, contractNumber: string) => {
+  /**
+   * Descarga el PDF de la venta (documento comercial, se genera siempre).
+   */
+  const downloadSalePdf = async (item: SaleItem) => {
     const token = localStorage.getItem("netland_token");
-    const response = await fetch(`${API_URL}/sales/${contractId}/pdf`, {
+    const response = await fetch(`${API_URL}/sales/${item.contract_id}/pdf`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) return;
@@ -89,7 +92,7 @@ export default function SalesPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${contractNumber}.pdf`;
+    link.download = `${item.contract_number}.pdf`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -222,7 +225,7 @@ export default function SalesPage() {
                       variant="outline"
                       className="!px-2.5 !py-1.5"
                       title="Descargar PDF de venta"
-                      onClick={() => downloadSalePdf(item.contract_id, item.contract_number)}
+                      onClick={() => downloadSalePdf(item)}
                     >
                       <Download className="h-3.5 w-3.5" />
                     </Button>

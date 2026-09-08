@@ -1,18 +1,70 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Pencil, Plus, Trash2, Image, FileText, FileSpreadsheet, FileDown, Upload } from "lucide-react";
+import {
+  Pencil,
+  Plus,
+  Trash2,
+  Image,
+  FileText,
+  FileSpreadsheet,
+  FileDown,
+  Upload,
+  MapPin,
+  Boxes,
+  CheckCircle2,
+} from "lucide-react";
 import { api } from "../../../lib/api";
 import { API_URL } from "../../../lib/constants";
 import type { Project } from "../../../types";
-import { PageHeader, Button, Card, Badge, Table } from "../ui";
+import { PageHeader, Button, Card, Badge } from "../ui";
 import { useToast } from "../../../components/ui/Toast";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { FileUploader } from "../../../components/ui/FileUploader";
+
+const PROJECT_TYPE_LABELS: Record<string, string> = {
+  lotes: "Lotes",
+  condominio_campestre: "Condominio Campestre",
+  urbanizacion: "Urbanización",
+};
+
+function ProjectTypeBadge({ projectType }: { projectType: string }) {
+  return (
+    <span className="rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-netland-primary backdrop-blur-sm">
+      {PROJECT_TYPE_LABELS[projectType] ?? "Proyecto"}
+    </span>
+  );
+}
+
+function ProjectStat({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-netland-light/60 px-2.5 py-1.5">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-netland-primary shadow-sm">
+        {icon}
+      </span>
+      <div className="leading-tight">
+        <p className="text-base font-bold text-netland-dark">{value}</p>
+        <p className="text-[10px] font-medium uppercase tracking-wide text-netland-muted">
+          {label}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminProjects() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { toast, confirm } = useToast();
   const [showExcelImport, setShowExcelImport] = useState<number | null>(null);
   const [showPlanUpload, setShowPlanUpload] = useState<number | null>(null);
@@ -58,9 +110,10 @@ export default function AdminProjects() {
       />
 
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Skeleton className="h-32 rounded-lg" />
-          <Skeleton className="h-32 rounded-lg" />
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-72 rounded-xl" />
+          <Skeleton className="h-72 rounded-xl" />
+          <Skeleton className="h-72 rounded-xl" />
         </div>
       ) : !projects || projects.length === 0 ? (
         <Card>
@@ -70,93 +123,120 @@ export default function AdminProjects() {
           />
         </Card>
       ) : (
-        <Table headers={["Proyecto", "Ubicación", "Lotes", "Disponibles", "Estado", "Acciones"]}>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
-            <tr key={project.id} className="hover:bg-netland-light/30">
-              <td className="px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-10 w-10 shrink-0 rounded-md"
-                    style={{
-                      backgroundColor: project.color_primary,
-                      backgroundImage: project.hero_image
-                        ? `url(${project.hero_image})`
-                        : undefined,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }}
-                  />
-                  <div>
-                    <p className="font-semibold text-netland-dark">{project.short_name}</p>
-                    <p className="text-xs text-netland-muted">/{project.slug}</p>
-                  </div>
+            <article
+              key={project.id}
+              className="group flex flex-col overflow-hidden rounded-xl border border-netland-light bg-white shadow-soft transition-all duration-300 hover:-translate-y-0.5 hover:border-netland-primary hover:shadow-lift"
+            >
+              {/* Portada */}
+              <button
+                type="button"
+                onClick={() => navigate(`/admin/proyectos/${project.id}/editar`)}
+                className="relative block h-64 w-full overflow-hidden text-left sm:h-62"
+                title="Editar proyecto"
+              >
+                <div
+                  className="h-full w-full"
+                  style={{
+                    backgroundColor: project.color_primary,
+                    backgroundImage: project.hero_image
+                      ? `url(${project.hero_image})`
+                      : undefined,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
                 </div>
-              </td>
-              <td className="px-5 py-4 text-netland-muted">{project.location}</td>
-              <td className="px-5 py-4">{project.lots_count}</td>
-              <td className="px-5 py-4 font-semibold text-netland-primary">
-                {project.available_count}
-              </td>
-              <td className="px-5 py-4">
-                <Badge color={project.is_published ? "#16a34a" : "#9ca3af"}>
-                  {project.is_published ? "Publicado" : "Oculto"}
-                </Badge>
-              </td>
-              <td className="px-5 py-4">
-                <div className="flex gap-2 flex-wrap">
-                  <Link to={`/admin/proyectos/${project.id}/editar`}>
-                    <Button variant="outline" className="!px-3 !py-2" title="Editar proyecto">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link to={`/admin/proyectos/${project.id}/galeria`}>
-                    <Button variant="outline" className="!px-3 !py-2" title="Gestionar galería">
-                      <Image className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link to={`/admin/proyectos/${project.id}/documentos`}>
-                    <Button variant="outline" className="!px-3 !py-2" title="Gestionar documentos">
-                      <FileText className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="outline"
-                    className="!px-3 !py-2"
-                    onClick={() => setShowExcelImport(project.id)}
-                    title="Importar lotes desde Excel"
+                <div className="absolute left-3 top-3">
+                  <ProjectTypeBadge projectType={project.project_type} />
+                </div>
+                <div className="absolute right-3 top-3">
+                  <Badge color={project.is_published ? "#16a34a" : "#94a3b8"}>
+                    {project.is_published ? "Publicado" : "Oculto"}
+                  </Badge>
+                </div>
+                {project.logo_url && (
+                  <img
+                    src={project.logo_url}
+                    alt={`Logo ${project.short_name}`}
+                    className="absolute bottom-3 left-3 h-9 w-9 rounded-md border border-white/40 object-cover shadow-sm"
+                  />
+                )}
+              </button>
+
+              {/* Cuerpo */}
+              <div className="flex flex-1 flex-col p-4">
+                <div className="mb-2 flex items-baseline justify-between gap-2">
+                  <Link
+                    to={`/admin/proyectos/${project.id}/editar`}
+                    className="font-display text-lg font-bold text-netland-dark transition-colors hover:text-netland-primary"
                   >
-                    <FileSpreadsheet className="h-4 w-4" />
-                    Excel
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="!px-3 !py-2"
-                    onClick={() => setShowPlanUpload(project.id)}
-                    title="Gestionar PDF del plano"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Plano PDF
-                    {project.plan_pdf_url && (
-                      <span className="ml-1 inline-flex h-2 w-2 rounded-full bg-green-500" title="PDF cargado" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    className="!px-3 !py-2"
+                    {project.short_name}
+                  </Link>
+                  <span className="shrink-0 text-xs text-netland-muted">/{project.slug}</span>
+                </div>
+
+                <p className="mb-3 flex items-center gap-1.5 text-xs text-netland-muted">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-netland-accent" />
+                  <span className="line-clamp-1">{project.location || "Sin ubicación"}</span>
+                </p>
+
+                {/* Estadísticas */}
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  <ProjectStat label="Lotes" value={project.lots_count} icon={<Boxes className="h-3.5 w-3.5" />} />
+                  <ProjectStat
+                    label="Disponibles"
+                    value={project.available_count}
+                    icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                  />
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="flex items-center gap-1.5 border-t border-netland-light bg-netland-light/30 px-4 py-3">
+                <IconLink to={`/admin/proyectos/${project.id}/editar`} title="Editar proyecto">
+                  <Pencil className="h-4 w-4" />
+                </IconLink>
+                <IconLink to={`/admin/proyectos/${project.id}/galeria`} title="Gestionar galería">
+                  <Image className="h-4 w-4" />
+                </IconLink>
+                <IconLink to={`/admin/proyectos/${project.id}/documentos`} title="Gestionar documentos">
+                  <FileText className="h-4 w-4" />
+                </IconLink>
+                <IconButton
+                  title="Importar lotes desde Excel"
+                  onClick={() => setShowExcelImport(project.id)}
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                </IconButton>
+                <IconButton
+                  title={project.plan_pdf_url ? "Plano PDF cargado" : "Subir PDF del plano"}
+                  onClick={() => setShowPlanUpload(project.id)}
+                >
+                  <Upload className="h-4 w-4" />
+                  {project.plan_pdf_url && (
+                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-green-500" />
+                  )}
+                </IconButton>
+                <div className="ml-auto">
+                  <IconButton
+                    title="Eliminar proyecto"
+                    danger
                     onClick={async () => {
                       if (await confirm(`¿Eliminar el proyecto ${project.short_name}?`)) {
                         deleteMutation.mutate(project.id);
                       }
                     }}
-                    title="Eliminar proyecto"
                   >
                     <Trash2 className="h-4 w-4" />
-                  </Button>
+                  </IconButton>
                 </div>
-              </td>
-            </tr>
+              </div>
+            </article>
           ))}
-        </Table>
+        </div>
       )}
 
       {/* Modal de Importar Excel */}
@@ -183,6 +263,55 @@ export default function AdminProjects() {
         />
       )}
     </div>
+  );
+}
+
+// Botón de acción con icono que navega a otra ruta
+function IconLink({
+  to,
+  title,
+  children,
+}: {
+  to: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      title={title}
+      className="flex h-9 w-9 items-center justify-center rounded-md border border-netland-light bg-white text-netland-muted transition-colors hover:border-netland-primary hover:text-netland-primary"
+    >
+      {children}
+    </Link>
+  );
+}
+
+// Botón de acción con icono (acciones inline)
+function IconButton({
+  title,
+  onClick,
+  danger = false,
+  children,
+}: {
+  title: string;
+  onClick: () => void;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`relative flex h-9 w-9 items-center justify-center rounded-md border bg-white transition-colors ${
+        danger
+          ? "border-netland-light text-netland-muted hover:border-red-500 hover:text-red-600"
+          : "border-netland-light text-netland-muted hover:border-netland-primary hover:text-netland-primary"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

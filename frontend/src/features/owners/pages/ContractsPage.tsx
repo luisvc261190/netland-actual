@@ -88,15 +88,30 @@ export default function ContractsPage() {
   const startIndex = (page - 1) * pageSize;
   const paginatedContracts = filteredContracts.slice(startIndex, startIndex + pageSize);
 
-  const handleDownloadContract = async (contractId: number, contractNumber: string) => {
+  /**
+   * Descarga el PDF del contrato.
+   * Si el lote ya tiene una URL almacenada (generada previamente), se abre directamente
+   * sin regenerar el PDF; de lo contrario se solicita al backend y se persiste la URL.
+   */
+  const handleDownloadContract = async (contract: Contract) => {
+    const token = localStorage.getItem("netland_token");
+    const pdfUrl = contract.lot_pdf_url || contract.contract_pdf_url;
+
+    if (pdfUrl) {
+      window.open(pdfUrl, "_blank");
+      return;
+    }
+
     try {
-      const token = localStorage.getItem("netland_token");
-      const response = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/contracts/${contractId}/pdf`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/contracts/${contract.id}/pdf`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Error al descargar el contrato");
@@ -106,7 +121,7 @@ export default function ContractsPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${contractNumber}.pdf`;
+      link.download = `${contract.contract_number}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -286,7 +301,7 @@ export default function ContractsPage() {
                     <Button
                       variant="outline"
                       className="!px-2.5 !py-1.5"
-                      onClick={() => handleDownloadContract(contract.id, contract.contract_number)}
+                      onClick={() => handleDownloadContract(contract)}
                       title="Descargar contrato"
                     >
                       <Download className="h-3.5 w-3.5" />

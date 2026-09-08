@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,9 +19,12 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/netland"
 
-    JWT_SECRET: str = "change-me"
+    JWT_SECRET: str = ""
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+
+    # Configuración de acceso a la documentación (se desactiva en producción)
+    ENABLE_DOCS: bool = True
 
     CLOUDINARY_CLOUD_NAME: str = ""
     CLOUDINARY_API_KEY: str = ""
@@ -67,6 +71,20 @@ class Settings(BaseSettings):
     PLAN_OCR_DPI: int = 300
     PLAN_OCR_LANG: str = "spa+eng"
     PLAN_CONFIDENCE_THRESHOLD: float = 0.60
+
+    @model_validator(mode="after")
+    def _validate_security_settings(self):
+        """Fuerza un secreto JWT seguro fuera del entorno de desarrollo."""
+        insecure_secrets = {"", "change-me", "change_me", "CHANGE-ME"}
+        if self.ENVIRONMENT.lower() != "development" and (
+            self.JWT_SECRET in insecure_secrets or len(self.JWT_SECRET) < 24
+        ):
+            raise ValueError(
+                "JWT_SECRET debe ser una cadena segura de al menos 24 caracteres "
+                "y diferente de los valores por defecto. Configúralo en las variables "
+                "de entorno de producción."
+            )
+        return self
 
     @property
     def is_cloudinary_configured(self) -> bool:

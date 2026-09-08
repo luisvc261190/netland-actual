@@ -63,6 +63,7 @@ export interface Lot {
   location_bonus_amount: number | null;
   normal_price_usd: number | null;
   normal_price_soles: number | null;
+  contract_pdf_url?: string | null;
 }
 
 export interface GalleryItem {

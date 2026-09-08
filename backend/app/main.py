@@ -1,5 +1,6 @@
 import logging.config
 
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -16,8 +17,9 @@ logger = logging.getLogger("netland")
 app = FastAPI(
     title=f"{settings.APP_NAME} API",
     version="1.0.0",
-    docs_url="/docs",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if settings.ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if settings.ENABLE_DOCS else None,
+    redoc_url=None,
 )
 
 app.add_middleware(
@@ -27,6 +29,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Agrega cabeceras de seguridad básicas a todas las respuestas."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 @app.exception_handler(IntegrityError)

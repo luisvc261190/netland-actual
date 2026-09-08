@@ -890,6 +890,8 @@ class SalesService:
                 "paid_amount": detail["paid_amount"],
                 "pending_amount": detail["outstanding_balance"],
                 "collection_status": detail["collection_status"],
+                "lot_pdf_url": contract.lot.contract_pdf_url if contract.lot else None,
+                "contract_pdf_url": contract.contract_pdf_url,
             })
 
         if filters.get("payment_status"):

@@ -119,6 +119,7 @@ class LotCreate(BaseModel):
     location_bonus_amount: float | None = None
     normal_price_usd: float | None = None
     normal_price_soles: float | None = None
+    contract_pdf_url: str | None = None
 
 
 class LotUpdate(BaseModel):
@@ -140,6 +141,7 @@ class LotUpdate(BaseModel):
     location_bonus_amount: float | None = None
     normal_price_usd: float | None = None
     normal_price_soles: float | None = None
+    contract_pdf_url: str | None = None
 
 
 class LotStatusUpdate(BaseModel):
@@ -168,6 +170,7 @@ class LotOut(BaseModel):
     location_bonus_amount: float | None = None
     normal_price_usd: float | None = None
     normal_price_soles: float | None = None
+    contract_pdf_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

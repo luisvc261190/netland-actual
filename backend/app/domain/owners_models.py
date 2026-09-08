@@ -20,6 +20,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -340,6 +341,13 @@ class Contract(Base):
     cash_payment = relationship("CashPayment", back_populates="contract", uselist=False, cascade="all, delete-orphan")
     financing = relationship("FinancingPlan", back_populates="contract", uselist=False, cascade="all, delete-orphan")
     documents = relationship("ContractDocument", back_populates="contract", cascade="all, delete-orphan")
+
+    @hybrid_property
+    def lot_pdf_url(self) -> str | None:
+        """URL del PDF del contrato almacenada en el lote (generada una sola vez)."""
+        if self.lot is not None:
+            return self.lot.contract_pdf_url
+        return None
 
     # Constraints
     __table_args__ = (
