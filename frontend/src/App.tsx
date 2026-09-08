@@ -72,7 +72,6 @@ const ImportOwnersPage = lazy(
   () => import("./features/owners/pages/ImportOwnersPage")
 );
 const SalesPage = lazy(() => import("./features/owners/pages/SalesPage"));
-const DataImportPage = lazy(() => import("./features/owners/pages/DataImportPage"));
 
 export default function App() {
   return (
@@ -229,14 +228,6 @@ export default function App() {
               element={
                 <RequireRole roles={SALES_ROLES}>
                   <SalesPage />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="importacion"
-              element={
-                <RequireRole roles={ADMIN_ROLES}>
-                  <DataImportPage />
                 </RequireRole>
               }
             />

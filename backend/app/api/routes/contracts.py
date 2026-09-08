@@ -666,7 +666,7 @@ def get_contract_pdf(
     current_user: User = Depends(get_current_user),
 ):
     """Genera y descarga el contrato de compraventa en PDF."""
-    from app.domain.owners_models import Owner
+    from app.domain.owners_models import Owner, Payment
     
     detail = ContractsService.get_contract_detail(db, contract_id)
     if not detail:
@@ -697,6 +697,28 @@ def get_contract_pdf(
             "installment_value": float(financing.get("installment_amount", 0)),
         }
     
+    # Obtener vouchers del pago inicial
+    initial_vouchers = []
+    if contract.payment_modality == "financiado":
+        vouchers = db.query(Payment).filter(
+            Payment.contract_id == contract_id,
+            Payment.notes.like("%Pago inicial - Voucher subido al crear contrato%"),
+            Payment.is_cancelled == False,
+            Payment.receipt_url != None
+        ).all()
+        
+        initial_vouchers = [
+            {
+                "amount": float(v.amount),
+                "date": v.payment_date.strftime("%d/%m/%Y") if v.payment_date else "",
+                "method": v.payment_method or "",
+                "transaction": v.transaction_number or "",
+                "bank": v.bank_name or "",
+                "image_url": v.receipt_url,
+            }
+            for v in vouchers
+        ]
+    
     pdf = generate_contract_pdf(
         contract_number=contract.contract_number,
         company_name=settings.COMPANY_NAME,
@@ -718,6 +740,7 @@ def get_contract_pdf(
         payment_plan=payment_plan,
         advisor_name=detail["advisor_name"],
         notes=contract.notes,
+        initial_vouchers=initial_vouchers,
     )
 
     # Persistir la URL si Cloudinary está disponible

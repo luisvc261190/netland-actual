@@ -1517,6 +1517,7 @@ def generate_contract_pdf(
     owner_address: str | None = None,
     owner_civil_status: str | None = None,
     payment_plan: dict | None = None,
+    initial_vouchers: list | None = None,
 ) -> bytes:
     """
     Genera un CONTRATO DE COMPRAVENTA DE BIEN FUTURO legalmente válido para el Perú.
@@ -1762,28 +1763,102 @@ def generate_contract_pdf(
             ))
             story.append(Spacer(1, 2 * mm))
             
-            # Tabla de datos del pago inicial
-            inicial_data = [
-                ["Datos del Pago Inicial", ""],
-                ["Monto", format_soles(inicial)],
-                ["Fecha de pago", "____________________"],
-                ["Banco", "____________________"],
-                ["N° de operación", "____________________"],
-            ]
+            # Mostrar vouchers si existen, sino mostrar tabla vacía
+            if initial_vouchers and len(initial_vouchers) > 0:
+                import requests
+                from io import BytesIO
+                
+                story.append(Paragraph(
+                    "<b>Comprobantes de Pago Inicial:</b>",
+                    style_body
+                ))
+                story.append(Spacer(1, 2 * mm))
+                
+                # Crear tabla con vouchers (máximo 2 por fila)
+                voucher_rows = []
+                for i in range(0, len(initial_vouchers), 2):
+                    row_data = []
+                    for j in range(2):
+                        idx = i + j
+                        if idx < len(initial_vouchers):
+                            voucher = initial_vouchers[idx]
+                            
+                            # Descargar imagen del voucher
+                            voucher_content = []
+                            try:
+                                response = requests.get(voucher["image_url"], timeout=5)
+                                if response.status_code == 200:
+                                    img_data = BytesIO(response.content)
+                                    img = ImageReader(img_data)
+                                    
+                                    # Añadir imagen (40mm de ancho)
+                                    from reportlab.platypus import Image as RLImage
+                                    voucher_img = RLImage(img_data, width=40*mm, height=30*mm)
+                                    voucher_content.append(voucher_img)
+                            except:
+                                voucher_content.append(Paragraph("<i>[Imagen no disponible]</i>", style_body))
+                            
+                            # Añadir datos del voucher
+                            voucher_text = f"""
+                            <b>Monto:</b> {format_soles(voucher['amount'])}<br/>
+                            <b>Fecha:</b> {voucher['date']}<br/>
+                            <b>Método:</b> {voucher['method']}<br/>
+                            """
+                            if voucher['transaction']:
+                                voucher_text += f"<b>N° Op:</b> {voucher['transaction']}<br/>"
+                            if voucher['bank']:
+                                voucher_text += f"<b>Banco:</b> {voucher['bank']}"
+                            
+                            voucher_content.append(Spacer(1, 1*mm))
+                            voucher_content.append(Paragraph(voucher_text, ParagraphStyle(
+                                'voucher_detail',
+                                fontName='Helvetica',
+                                fontSize=7,
+                                leading=9,
+                                textColor=TEXT
+                            )))
+                            
+                            row_data.append(voucher_content)
+                        else:
+                            row_data.append("")
+                    
+                    voucher_rows.append(row_data)
+                
+                # Crear tabla con los vouchers
+                voucher_table = Table(voucher_rows, colWidths=[65*mm, 65*mm])
+                voucher_table.setStyle(TableStyle([
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#DCE3E7")),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 5),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ]))
+                story.append(voucher_table)
+            else:
+                # Tabla vacía para llenar manualmente
+                inicial_data = [
+                    ["Datos del Pago Inicial", ""],
+                    ["Monto", format_soles(inicial)],
+                    ["Fecha de pago", "____________________"],
+                    ["Banco", "____________________"],
+                    ["N° de operación", "____________________"],
+                ]
+                
+                inicial_table = Table(inicial_data, colWidths=[50*mm, 80*mm])
+                inicial_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), BLUE_LIGHT),
+                    ('SPAN', (0, 0), (1, 0)),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), NAVY),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 8),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#DCE3E7")),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 5),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ]))
+                story.append(inicial_table)
             
-            inicial_table = Table(inicial_data, colWidths=[50*mm, 80*mm])
-            inicial_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), BLUE_LIGHT),
-                ('SPAN', (0, 0), (1, 0)),
-                ('TEXTCOLOR', (0, 0), (-1, 0), NAVY),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#DCE3E7")),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('TOPPADDING', (0, 0), (-1, -1), 5),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-            ]))
-            story.append(inicial_table)
             story.append(Spacer(1, 3 * mm))
             
             story.append(Paragraph(

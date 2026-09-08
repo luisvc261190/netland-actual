@@ -30,15 +30,26 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
 
     CORS_ORIGINS: str = (
-        "http://localhost:5173, http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173,http://localhost:3000"
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173,"
+        "http://localhost:4173,"
+        "http://127.0.0.1:4173,"
+        "http://localhost:3000"
     )
 
     @property
     def cors_origins_list(self) -> list[str]:
-        origins = [o.strip().rstrip("/") for o in self.CORS_ORIGINS.split(",") if o.strip()]
+        origins = [
+            o.strip().rstrip("/")
+            for o in self.CORS_ORIGINS.split(",")
+            if o.strip()
+        ]
+
         frontend_url = self.FRONTEND_URL.strip().rstrip("/")
+
         if frontend_url and frontend_url not in origins:
             origins.append(frontend_url)
+
         return origins
 
     SEED_ADMIN_EMAIL: str = "admin@netlandcorp.com"

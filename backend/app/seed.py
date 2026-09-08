@@ -125,7 +125,7 @@ def run() -> None:
     try:
         # Roles
         roles = {}
-        for role_name in ("SUPER_ADMIN", "ADMIN", "ASESOR"):
+        for role_name in ("SUPER_ADMIN", "ADMIN", "ASESOR", "VENTAS", "COBRANZAS", "SUPERVISOR"):
             role = db.query(RoleModel).filter(RoleModel.name == role_name).first()
             if not role:
                 role = RoleModel(name=role_name)

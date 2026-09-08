@@ -14,7 +14,6 @@ import {
   Quote as QuoteIcon,
   Settings,
   Sparkles,
-  UploadCloud,
   Users,
   X,
   DollarSign,
@@ -93,12 +92,6 @@ const navItems = [
     label: "Cobranzas",
     icon: DollarSign,
     roles: ["SUPER_ADMIN", "ADMIN", "COBRANZAS", "SUPERVISOR"],
-  },
-  {
-    to: "/admin/importacion",
-    label: "Importación",
-    icon: UploadCloud,
-    roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
     to: "/admin/promociones",
