@@ -1,6 +1,6 @@
 # 🏡 Netland - Corporación Inmobiliaria
 
-Sistema completo de gestión inmobiliaria con CRM, panel administrativo, módulo de cobranzas y sitio web público.
+Sistema completo de gestión inmobiliaria con CRM, panel administrativo, módulo de ventas, propietarios y cobranzas, importación de planos con OCR y sitio web público.
 
 ## 🌟 Características Principales
 
@@ -8,7 +8,7 @@ Sistema completo de gestión inmobiliaria con CRM, panel administrativo, módulo
 - **Catálogo de proyectos** con filtros y búsqueda avanzada
 - **Galería multimedia** con imágenes y videos institucionales
 - **Planos interactivos** con disponibilidad en tiempo real de lotes
-- **Calculadora de cuotas** con generación de PDF automática
+- **Asesores de la empresa** con dexcripcion, contacto y enlace hacia wasap de cada uno
 - **Sistema de referidos** ("Refiere y Gana") con recompensas por niveles
 - **Formularios de contacto** con captura automática de leads
 - **WhatsApp flotante** integrado en todas las páginas
@@ -20,15 +20,19 @@ Sistema completo de gestión inmobiliaria con CRM, panel administrativo, módulo
 
 #### Gestión Comercial
 - **Dashboard con KPIs** en tiempo real
-- **Gestión de Proyectos** completa con galería y documentos
-- **Gestión de Lotes** con importación masiva desde Excel
+- **Gestión de Proyectos** completa con galería, documentos y planos
+- **Gestión de Lotes** con estado en tiempo real (disponible, reservado, vendido)
+- **Importación de lotes desde Excel** con plantilla descargable
+- **Editor / Importación de Planos** con OCR y detección automática de lotes desde PDF
 - **CRM de Leads** con estados de seguimiento y asignación de asesores
-- **Clientes Captados** con historial completo
+- **Clientes Captados** con historial completo y origen de captación
 - **Sistema de Cotizaciones** con generación y envío de PDF
 - **Gestión de Visitas** con calendario integrado
 - **Gestión de Asesores** con perfil público en la web
 - **Promociones** con fechas de vigencia
 - **Multimedia** centralizada con Cloudinary CDN
+- **Configuración del Sitio** (contenido dinámico de la web)
+- **Gestión de Usuarios** con roles y control de accesos
 
 #### Módulo de Propietarios y Cobranzas 💰
 - **Gestión de Propietarios** (persona natural y jurídica)
@@ -49,35 +53,45 @@ Sistema completo de gestión inmobiliaria con CRM, panel administrativo, módulo
 - **Integración WhatsApp** para recordatorios de pago
 - **Reportes y Estados de Cuenta**
 - **Control de Mora** automático con alertas
+- **Importación masiva de propietarios y pagos desde Excel** (validación + aplicación en 2 pasos)
+
+#### Módulo de Ventas 💼
+- **Registro de ventas** vinculadas a contratos y lotes
+- **Seguimiento del embudo comercial** desde la captación hasta el cierre
+- **Asignación de asesores** y supervisores de ventas
 
 #### Seguridad y Control
 - **Autenticación JWT** con roles y permisos
-- **Roles de Usuario:** SUPER_ADMIN, ADMIN, ASESOR
+- **Roles de Usuario:** SUPER_ADMIN, ADMIN, ASESOR, VENTAS, COBRANZAS, SUPERVISOR
 - **Auditoría completa** de acciones (quién y cuándo)
 - **Gestión de Usuarios** con control de accesos
 
 ## 🛠️ Stack Tecnológico
 
 ### Backend (API)
-- **FastAPI** 0.104+ - Framework web moderno y rápido
+- **FastAPI** 0.115+ - Framework web moderno y rápido
 - **PostgreSQL** (Neon) - Base de datos relacional en la nube
-- **SQLAlchemy** 2.0+ - ORM con soporte async
+- **SQLAlchemy** 2.0+ - ORM
 - **Alembic** - Sistema de migraciones de BD
 - **Pydantic** v2 - Validación de datos
 - **Cloudinary** - CDN y almacenamiento de archivos
-- **JWT** - Autenticación y autorización
+- **JWT** + **bcrypt** - Autenticación y autorización
+- **ReportLab** - Generación de PDFs (cotizaciones, contratos, estados de cuenta)
+- **pandas + openpyxl** - Importación/exportación de Excel
+- **OCR de Planos:** pdf2image, pytesseract, OpenCV, NumPy (detección de lotes)
 - **Python** 3.11+
 
 ### Frontend (Web App)
 - **React** 18 - Librería UI con hooks
 - **TypeScript** 5+ - Tipado estático
-- **Vite** - Build tool ultra rápido
+- **Vite** 6 - Build tool ultra rápido
 - **TanStack Query** (React Query) - Data fetching y cache
-- **React Router** v6 - Navegación SPA
+- **React Router** v6 - Navegación SPA (rutas y lazy loading)
 - **Tailwind CSS** 3+ - Framework de estilos utility-first
 - **Lucide Icons** - Iconografía moderna
-- **jsPDF** - Generación de PDFs
 - **Recharts** - Gráficos y visualizaciones
+- **react-hook-form + zod** - Formularios y validación
+- **react-pdf / pdfjs-dist** - Visualización de planos PDF
 
 ### Infraestructura y DevOps
 - **Render.com** - Hosting del backend
@@ -98,15 +112,19 @@ netland-proyecto/
 │   │   │   └── routes/          # Endpoints por módulo
 │   │   │       ├── auth.py
 │   │   │       ├── projects.py
-│   │   │       ├── lots.py
-│   │   │       ├── leads.py
-│   │   │       ├── clients.py
-│   │   │       ├── quotes.py
-│   │   │       ├── visits.py
-│   │   │       ├── owners.py    # Módulo propietarios
-│   │   │       ├── contracts.py # Módulo contratos
-│   │   │       ├── payments.py  # Módulo pagos
-│   │   │       └── collections.py # Módulo cobranzas
+│   │   │       ├── crm.py
+│   │   │       ├── users.py
+│   │   │       ├── dashboard.py
+│   │   │       ├── config.py     # Configuración del sitio
+│   │   │       ├── uploads.py    # Subidas a Cloudinary
+│   │   │       ├── excel_import.py
+│   │   │       ├── plan_import.py    # OCR de planos
+│   │   │       ├── owners.py     # Módulo propietarios
+│   │   │       ├── contracts.py  # Módulo contratos
+│   │   │       ├── payments.py   # Módulo pagos
+│   │   │       ├── collections.py # Módulo cobranzas
+│   │   │       ├── installments.py # Cuotas del cronograma
+│   │   │       └── sales.py      # Módulo de ventas
 │   │   ├── core/
 │   │   │   ├── config.py        # Configuración
 │   │   │   ├── database.py      # Conexión a BD
@@ -151,23 +169,32 @@ netland-proyecto/
 │   │   ├── features/
 │   │   │   ├── admin/
 │   │   │   │   ├── AdminLayout.tsx
+│   │   │   │   ├── AdminLogin.tsx
 │   │   │   │   ├── AuthContext.tsx
 │   │   │   │   ├── ui.tsx      # Componentes UI admin
 │   │   │   │   └── pages/      # Páginas del admin
 │   │   │   │       ├── Dashboard.tsx
-│   │   │   │       ├── Projects.tsx
+│   │   │   │       ├── Projects.tsx / ProjectForm / ProjectGallery
+│   │   │   │       ├── ProjectDocuments.tsx
+│   │   │   │       ├── PlanEditor.tsx / PlanImport.tsx
 │   │   │   │       ├── Lots.tsx
-│   │   │   │       ├── Leads.tsx
-│   │   │   │       ├── Quotes.tsx
+│   │   │   │       ├── Leads.tsx / CapturedClients.tsx
+│   │   │   │       ├── Quotes.tsx / Visits.tsx
+│   │   │   │       ├── Advisors.tsx / Promotions.tsx
+│   │   │   │       ├── Media.tsx / SiteSettings.tsx / Users.tsx
 │   │   │   │       └── ...
-│   │   │   └── owners/         # Módulo de cobranzas
-│   │   │       ├── types.ts
-│   │   │       ├── constants.ts
-│   │   │       └── pages/
-│   │   │           ├── CollectionsPage.tsx
-│   │   │           ├── OwnersPage.tsx
-│   │   │           ├── ContractsPage.tsx
-│   │   │           └── PaymentsPage.tsx
+│   │   │   ├── owners/         # Módulo de cobranzas
+│   │   │   │   ├── types.ts
+│   │   │   │   ├── constants.ts
+│   │   │   │   └── pages/
+│   │   │   │       ├── OwnersPage.tsx / OwnerDetailPage.tsx
+│   │   │   │       ├── ContractsPage.tsx / ContractDetailPage.tsx
+│   │   │   │       ├── PaymentsPage.tsx / PaymentDetailPage.tsx
+│   │   │   │       ├── CollectionsPage.tsx
+│   │   │   │       ├── SalesPage.tsx            # Módulo de ventas
+│   │   │   │       └── ImportOwnersPage.tsx     # Importación Excel
+│   │   │   └── leads/
+│   │   │       └── useLeadForm.ts
 │   │   ├── pages/              # Páginas públicas
 │   │   │   ├── Home.tsx
 │   │   │   ├── Projects.tsx
@@ -175,10 +202,12 @@ netland-proyecto/
 │   │   │   ├── Advisors.tsx
 │   │   │   ├── ReferAndEarn.tsx
 │   │   │   ├── Contact.tsx
-│   │   │   └── About.tsx
+│   │   │   ├── About.tsx
+│   │   │   └── PoliticaPrivacidad.tsx
 │   │   ├── lib/
 │   │   │   ├── api.ts          # Cliente HTTP
-│   │   │   └── constants.ts    # Constantes globales
+│   │   │   ├── constants.ts    # Constantes globales
+│   │   │   └── validations.ts  # Schemas de validación (zod)
 │   │   ├── types/              # TypeScript types
 │   │   ├── App.tsx             # Router principal
 │   │   └── main.tsx            # Punto de entrada
@@ -304,6 +333,7 @@ Después de ejecutar `python -m app.seed`:
 
 ### Documentos Principales
 - **[README.md](./README.md)** - Este archivo (overview general)
+- **[QUICK-START.md](./QUICK-START.md)** - Guía de inicio rápido
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Guía completa de despliegue en producción
 - **[check-deployment.md](./check-deployment.md)** - Checklist de verificación pre-deploy
 - **[PRESENTACION_PROYECTO_NETLAND.md](./PRESENTACION_PROYECTO_NETLAND.md)** - Documento ejecutivo para presentación
@@ -311,8 +341,10 @@ Después de ejecutar `python -m app.seed`:
 
 ### Documentación Técnica Específica
 - **[backend/OWNERS_MODULE_README.md](./backend/OWNERS_MODULE_README.md)** - Documentación del módulo de cobranzas
-- **[backend/sql_examples.sql](./backend/sql_examples.sql)** - Ejemplos de consultas SQL
 - **[backend/PLAN_IMPORT_SETUP.md](./backend/PLAN_IMPORT_SETUP.md)** - Setup de importación de planos
+- **[backend/sql_examples.sql](./backend/sql_examples.sql)** - Ejemplos de consultas SQL
+- **[VOUCHER_UPLOAD_IMPLEMENTATION.md](./VOUCHER_UPLOAD_IMPLEMENTATION.md)** - Implementación de vouchers de pago
+- **[VOUCHER_TESTING_GUIDE.md](./VOUCHER_TESTING_GUIDE.md)** - Guía de pruebas de vouchers
 
 ### API Documentation
 - **Swagger UI:** `http://localhost:8000/docs` (desarrollo)
@@ -331,24 +363,29 @@ El proyecto usa **Neon PostgreSQL** (serverless y compatible con Render, Netlify
 ### Tablas Principales
 
 #### Módulo CRM
-- `users` - Usuarios del sistema (admin, asesores)
+- `roles` - Roles y permisos del sistema
+- `users` - Usuarios del sistema (admin, asesores, ventas, cobranzas)
 - `projects` - Proyectos inmobiliarios
 - `blocks` - Manzanas de los proyectos
-- `lots` - Lotes disponibles
+- `lots` - Lotes disponibles (estado: disponible, reservado, vendido)
 - `project_images` - Galería de imágenes
 - `project_videos` - Videos promocionales
-- `project_documents` - Documentos descargables
-- `leads` - Leads capturados
-- `clients` - Clientes registrados
-- `quotes` - Cotizaciones generadas
-- `visits` - Visitas programadas
-- `advisors` - Asesores de ventas
+- `project_documents` - Documentos descargables y planos PDF
 - `promotions` - Promociones activas
+- `advisors` - Asesores de ventas (con perfil público)
+- `leads` - Leads capturados (con estados de seguimiento)
+- `clients` - Clientes registrados
+- `visits` - Visitas programadas
+- `quotes` - Cotizaciones generadas
+- `quote_items` - Ítems de las cotizaciones
+- `notifications` - Notificaciones del sistema
+- `audit_logs` - Auditoría de acciones (quién y cuándo)
+- `site_config` - Configuración dinámica del sitio web
 
 #### Módulo de Propietarios y Cobranzas
-- `owners` - Propietarios (extensión de clients)
-- `contracts` - Contratos de compra-venta
+- `owners` - Propietarios (persona natural y jurídica)
 - `property_ownerships` - Copropiedades (N:M owners-lots)
+- `contracts` - Contratos de compra-venta (base del módulo de ventas)
 - `cash_payments` - Pagos al contado
 - `financing_plans` - Planes de financiamiento
 - `installments` - Cuotas del cronograma
@@ -358,7 +395,18 @@ El proyecto usa **Neon PostgreSQL** (serverless y compatible con Render, Netlify
 - `import_batches` - Lotes de importación Excel
 - `import_errors` - Errores de importación
 
-**Total:** 25+ tablas normalizadas (3FN)
+**Total:** 29 tablas normalizadas (3FN)
+
+### Roles del Sistema
+
+| Rol | Acceso |
+|-----|--------|
+| **SUPER_ADMIN** | Acceso completo a todos los módulos y gestión de usuarios |
+| **ADMIN** | Gestión comercial: proyectos, planos, multimedia, configuración del sitio |
+| **ASESOR** | CRM: leads, cotizaciones y visitas asignadas |
+| **VENTAS** | Módulo de ventas y propietarios (visión comercial) |
+| **COBRANZAS** | Módulo de cobranzas, contratos y pagos |
+| **SUPERVISOR** | Supervisión de ventas, cobranzas y propietarios |
 
 ### Migraciones
 
@@ -397,16 +445,17 @@ Blocks   PropertyOwnership    FinancingPlan → Installments
 ## 📤 Cloudinary
 
 El sistema usa Cloudinary para almacenar:
-- Imágenes de proyectos
+- Imágenes de proyectos y galerías
 - Videos promocionales
-- Documentos PDF
-- Planos interactivos
+- Documentos y planos PDF (los planos de `plans/` se convierten automáticamente a imagen)
+- Contratos generados en PDF
+- Vouchers de pago
 
 Folders organizados:
-- `projects/{proyecto_slug}/gallery/`
-- `projects/{proyecto_slug}/videos/`
-- `projects/{proyecto_slug}/documents/`
-- `site/hero/`
+- `plans/` - Planos de lotes (PDF → imagen)
+- `contracts/` y `contract_documents/` - Contratos y documentos legales
+- `vouchers/contract_{id}/` - Vouchers de pago por contrato
+- `site/` - Configuración del sitio (hero, etc.)
 
 ## 🧪 Testing
 
@@ -425,7 +474,6 @@ pytest --cov=app tests/
 
 # Ejecutar tests específicos
 pytest tests/test_integration.py
-pytest tests/test_owners_module.py
 
 # Tests con output detallado
 pytest -v
@@ -435,18 +483,14 @@ pytest -v
 ```bash
 cd frontend
 
-# Ejecutar tests
-npm run test
+# Verificación de tipos TypeScript (lint)
+npm run lint
 
-# Tests con coverage
-npm run test:coverage
-
-# Tests en modo watch
-npm run test:watch
-
-# Tests e2e (si están configurados)
-npm run test:e2e
+# Build de producción (incluye typecheck)
+npm run build
 ```
+
+> Nota: el frontend no tiene suite de tests automatizada configurada actualmente; la verificación se realiza vía TypeScript (`tsc --noEmit`) y build del bundle.
 
 ### Tests Manuales
 ```bash
@@ -549,26 +593,29 @@ Todos los derechos reservados © 2026 Netland.
 ### ✅ Completado (v1.0)
 - [x] Sitio web público responsive
 - [x] CRM completo (leads, clientes, cotizaciones)
-- [x] Gestión de proyectos y lotes
-- [x] Planos interactivos
+- [x] Gestión de proyectos, lotes y planos interactivos
+- [x] Editor e importación de planos con OCR (detección de lotes desde PDF)
 - [x] Calculadora de cuotas con PDF
 - [x] Sistema de referidos
-- [x] Módulo de propietarios y cobranzas
+- [x] Módulo de propietarios, contratos, pagos y cobranzas
+- [x] Módulo de ventas (dashboard comercial)
+- [x] Importación masiva de propietarios y pagos desde Excel
+- [x] Generación de contratos y estados de cuenta PDF
+- [x] Carga de vouchers de pago
 - [x] Dashboard de KPIs
-- [x] Roles y permisos
+- [x] Roles y permisos (6 roles) + gestión de usuarios
+- [x] Configuración dinámica del sitio web (admin)
 - [x] Integración WhatsApp
+- [x] Política de privacidad
 
 ### 🔄 En Desarrollo (v1.1)
-- [ ] Importación de propietarios desde Excel
-- [ ] Generación de contratos PDF
-- [ ] Estados de cuenta PDF
 - [ ] Notificaciones por email automatizadas
 - [ ] Reportes avanzados de cobranzas
+- [ ] Portal del cliente (ver su estado de cuenta)
 
 ### 📋 Planeado (v2.0)
 - [ ] App móvil para asesores (React Native)
 - [ ] Firma digital de contratos
-- [ ] Portal del cliente (ver su estado de cuenta)
 - [ ] Integración con pasarelas de pago online
 - [ ] Chat en vivo en el sitio web
 - [ ] Sistema de tickets de soporte

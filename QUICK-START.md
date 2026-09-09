@@ -71,7 +71,7 @@ https://netland.netlify.app,http://localhost:5173
 ### 5. Deploy
 - Click **"Create Web Service"**
 - Espera 3-5 minutos
-- ✅ Copia la URL: `https://netland-backend.onrender.com`
+- ✅ Copia la URL: `https://web-netland.onrender.com`
 
 ### 6. Ejecutar migraciones
 Una vez desplegado:
@@ -108,7 +108,7 @@ Click en **"Show advanced"** → **"New variable"**
 
 ```env
 VITE_API_URL
-https://netland-backend.onrender.com/api
+https://web-netland.onrender.com/api
 
 VITE_WHATSAPP_NUMBER
 51985928062
@@ -178,7 +178,7 @@ https://tu-nombre.netlify.app/admin
 
 **API Backend:**
 ```
-https://netland-backend.onrender.com
+https://web-netland.onrender.com
 ```
 
 ### 🔑 Credenciales por defecto:

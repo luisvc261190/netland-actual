@@ -82,7 +82,7 @@ CORS_ORIGINS=https://tu-sitio.netlify.app,http://localhost:5173
 1. Click en **"Create Web Service"**
 2. Render comenzará a construir y desplegar tu backend
 3. Espera a que el estado sea **"Live"** (toma 2-5 minutos)
-4. Copia la URL de tu backend: `https://netland-backend.onrender.com`
+4. Copia la URL de tu backend: `https://web-netland.onrender.com`
 
 ### Paso 5: Ejecutar migraciones
 
@@ -96,7 +96,7 @@ Después del primer despliegue, ejecuta las migraciones:
    python -m app.seed
    ```
 
-✅ **Backend desplegado!** URL: `https://netland-backend.onrender.com`
+✅ **Backend desplegado!** URL: `https://web-netland.onrender.com`
 
 ---
 
@@ -111,7 +111,7 @@ Después del primer despliegue, ejecuta las migraciones:
 
 2. **Crea/actualiza `.env.production`:**
    ```env
-   VITE_API_URL=https://netland-backend.onrender.com/api
+   VITE_API_URL=https://web-netland.onrender.com/api
    VITE_WHATSAPP_NUMBER=51985928062
    ```
 
@@ -138,7 +138,7 @@ Después del primer despliegue, ejecuta las migraciones:
 
 5. Click en **"Show advanced"** y agrega variables de entorno:
    ```
-   VITE_API_URL=https://netland-backend.onrender.com/api
+   VITE_API_URL=https://web-netland.onrender.com/api
    VITE_WHATSAPP_NUMBER=51985928062
    ```
 
@@ -307,7 +307,7 @@ Tu aplicación Netland está ahora en producción y accesible desde cualquier lu
 **URLs importantes:**
 - 🌐 Sitio público: `https://tu-sitio.netlify.app`
 - 🔧 Panel admin: `https://tu-sitio.netlify.app/admin`
-- 🔌 API Backend: `https://netland-backend.onrender.com`
+- 🔌 API Backend: `https://web-netland.onrender.com`
 
 ---
 
