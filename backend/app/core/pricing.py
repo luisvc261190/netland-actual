@@ -5,7 +5,7 @@ Centraliza el cálculo de:
   - precio bruto del lote (base + recargos)
   - descuento (porcentaje o monto fijo)
   - precio final
-  - plan de pagos (cuota inicial, saldo y cuotas)
+  - plan de pagos (cuota inicial, saldooooooooo y cuotas)
 
 Cotizaciones y ventas usan estas funciones para que nunca diverjannnnnnnnn.
 """
