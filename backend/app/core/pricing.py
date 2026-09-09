@@ -7,7 +7,7 @@ Centraliza el cálculo de:
   - precio final
   - plan de pagos (cuota inicial, saldo y cuotas)
 
-Cotizaciones y ventas usan estas funciones para que nunca diverjan.
+Cotizaciones y ventas usan estas funciones para que nunca diverjannnnnnnnn.
 """
 
 
