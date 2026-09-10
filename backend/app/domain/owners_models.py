@@ -488,7 +488,7 @@ class Installment(Base):
     installment_number = Column(Integer, nullable=False)
     
     # Fechas
-    due_date = Column(Date, nullable=False, index=True)
+    due_date = Column(Date, nullable=False)
     payment_date = Column(Date, nullable=True)
     
     # Montos

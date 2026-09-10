@@ -16,10 +16,8 @@ const emptyForm = {
   phone: "",
   whatsapp: "",
   email: "",
-  project_ids: "",
   is_available: true,
   bio: "",
-  sort_order: 0,
 };
 
 export default function AdminAdvisors() {
@@ -73,10 +71,8 @@ export default function AdminAdvisors() {
       phone: advisor.phone,
       whatsapp: advisor.whatsapp,
       email: advisor.email ?? "",
-      project_ids: advisor.project_ids,
       is_available: advisor.is_available,
       bio: advisor.bio,
-      sort_order: advisor.sort_order,
     });
     setUploadMethod(advisor.photo_url ? "url" : "upload");
     setModalOpen(true);
@@ -100,7 +96,7 @@ export default function AdminAdvisors() {
           <EmptyState title="Sin asesores" description="Agrega el equipo comercial de Netland." />
         </Card>
       ) : (
-        <Table headers={["Asesor", "Cargo", "Celular", "Proyectos", "Estado", "Acciones"]}>
+        <Table headers={["Asesor", "Cargo", "Celular", "Estado", "Acciones"]}>
           {advisors.map((advisor) => (
             <tr key={advisor.id} className="hover:bg-netland-light/30">
               <td className="px-5 py-3">
@@ -129,7 +125,6 @@ export default function AdminAdvisors() {
                   </a>
                 )}
               </td>
-              <td className="px-5 py-3 text-netland-muted">{advisor.project_ids || "—"}</td>
               <td className="px-5 py-3">
                 <Badge color={advisor.is_available ? "#16a34a" : "#9ca3af"}>
                   {advisor.is_available ? "Disponible" : "No disponible"}
@@ -243,10 +238,6 @@ export default function AdminAdvisors() {
             />
           </Field>
 
-          <Field label="Proyectos asignados (IDs separados por coma)">
-            <Input value={form.project_ids} onChange={(e) => setForm({ ...form, project_ids: e.target.value })} placeholder="1,2,3" />
-          </Field>
-          
           <Field label="Biografía">
             <Textarea 
               rows={3} 
@@ -254,18 +245,6 @@ export default function AdminAdvisors() {
               onChange={(e) => setForm({ ...form, bio: e.target.value })} 
               placeholder="Describe la experiencia y especialización del asesor..."
             />
-          </Field>
-
-          <Field label="Orden de visualización">
-            <Input 
-              type="number" 
-              value={form.sort_order} 
-              onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })} 
-              placeholder="0"
-            />
-            <p className="mt-1 text-xs text-netland-muted">
-              Los asesores se ordenan de menor a mayor. 0 aparece primero.
-            </p>
           </Field>
 
           <label className="flex items-center gap-2 text-sm">

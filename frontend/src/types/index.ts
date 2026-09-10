@@ -198,6 +198,17 @@ export interface User {
   advisor_name?: string | null;
 }
 
+export interface Backup {
+  id: number;
+  filename: string;
+  size_bytes: number;
+  tables_count: number;
+  total_rows: number;
+  status: string;
+  created_at: string;
+  created_by?: string | null;
+}
+
 export interface DashboardStats {
   projects_total: number;
   projects_published: number;

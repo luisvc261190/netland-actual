@@ -50,6 +50,7 @@ const AdminQuotes = lazy(() => import("./features/admin/pages/Quotes"));
 const AdminVisits = lazy(() => import("./features/admin/pages/Visits"));
 const AdminMedia = lazy(() => import("./features/admin/pages/Media"));
 const AdminUsers = lazy(() => import("./features/admin/pages/Users"));
+const AdminBackups = lazy(() => import("./features/admin/pages/Backups"));
 const AdminSiteSettings = lazy(() => import("./features/admin/pages/SiteSettings"));
 const AdminPlanEditor = lazy(() => import("./features/admin/pages/PlanEditor"));
 const AdminPlanImport = lazy(() => import("./features/admin/pages/PlanImport"));
@@ -180,6 +181,14 @@ export default function App() {
               element={
                 <RequireRole roles={SUPER_ADMIN_ROLES}>
                   <AdminUsers />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="backups"
+              element={
+                <RequireRole roles={SUPER_ADMIN_ROLES}>
+                  <AdminBackups />
                 </RequireRole>
               }
             />

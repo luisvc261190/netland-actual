@@ -12,10 +12,8 @@ export default function Advisors() {
     queryFn: () => api.get<Advisor[]>("/advisors"),
   });
 
-  // Filtrar solo asesores disponibles y ordenados
-  const availableAdvisors = advisors
-    ?.filter((advisor) => advisor.is_available)
-    .sort((a, b) => a.sort_order - b.sort_order) || [];
+  // Filtrar solo asesores disponibles (el backend los ordena por creación, últimos primero)
+  const availableAdvisors = advisors?.filter((advisor) => advisor.is_available) || [];
 
   return (
     <div>

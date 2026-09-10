@@ -4,6 +4,7 @@ import {
   BadgePercent,
   CalendarDays,
   ClipboardList,
+  Database,
   FileText,
   FolderKanban,
   LayoutDashboard,
@@ -127,6 +128,12 @@ const navItems = [
     to: "/admin/usuarios",
     label: "Usuarios",
     icon: Users,
+    roles: ["SUPER_ADMIN"],
+  },
+  {
+    to: "/admin/backups",
+    label: "Backups",
+    icon: Database,
     roles: ["SUPER_ADMIN"],
   },
 ];

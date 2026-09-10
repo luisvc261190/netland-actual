@@ -19,6 +19,9 @@ from sqlalchemy.sql import func
 
 from app.core.database import Base
 
+# Importar modelos del módulo de respaldos
+from app.domain.backup_models import Backup  # noqa: F401
+
 # Importar modelos del módulo de propietarios
 from app.domain.owners_models import (
     Owner,

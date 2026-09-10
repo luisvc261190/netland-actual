@@ -592,7 +592,7 @@ def list_clients(
 def list_advisors(db: Session = Depends(get_db)):
     return [
         AdvisorOut.model_validate(a)
-        for a in db.query(Advisor).order_by(Advisor.sort_order).all()
+        for a in db.query(Advisor).order_by(Advisor.created_at.desc()).all()
     ]
 
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     auth,
+    backups,
     collections,
     config,
     contracts,
@@ -41,3 +42,5 @@ api_router.include_router(imports.router)
 api_router.include_router(installments.router)
 # Módulo de Ventas
 api_router.include_router(sales.router)
+# Módulo de Respaldos (solo SUPER_ADMIN)
+api_router.include_router(backups.router)
