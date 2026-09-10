@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarCheck,
   FileCheck2,
+  Gift,
   HandCoins,
   HeartHandshake,
   Landmark,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { whatsappLink } from "../lib/constants";
+import entregallave from "../images/entregallave.jpg";
 import type { Project } from "../types";
 import { Reveal } from "../components/Reveal";
 import { CoreSpinLoader } from "../components/ui/CoreSpinLoader";
@@ -91,6 +93,7 @@ export default function Home() {
       <TrustSection />
       <WhySection />
       <StatsStrip />
+      <ReferralSection />
       <CtaSection />
     </div>
   );
@@ -296,28 +299,69 @@ function TrustSection() {
   return (
     <section className="bg-netland-dark py-20 text-white md:py-28">
       <div className="container-netland">
-        <Reveal>
-          <div className="mx-auto mb-14 max-w-2xl text-center">
-            <p className="eyebrow justify-center">Confianza</p>
-            <h2 className="font-display text-4xl font-semibold sm:text-5xl">
-              Invierte con respaldo
-            </h2>
-            <p className="mt-4 text-white/70">
-              Cada proyecto de Netland se desarrolla con seriedad, transparencia y
-              cercanía con el cliente.
-            </p>
-          </div>
-        </Reveal>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {trustItems.map((item, i) => (
-            <Reveal key={item.title} delay={i * 80}>
-              <div className="flex h-full items-center gap-4 rounded-md border border-white/10 bg-white/5 p-5 backdrop-blur transition-colors hover:border-netland-accent/50">
-                <item.icon className="h-8 w-8 shrink-0 text-netland-accent" />
-                <span className="text-sm font-medium leading-snug">{item.title}</span>
+        <div className="grid items-center gap-14 lg:grid-cols-2">
+          <div>
+            <Reveal>
+              <div className="max-w-lg">
+                <p className="eyebrow">Confianza</p>
+                <h2 className="font-display text-4xl font-semibold sm:text-5xl">
+                  Invierte con respaldo
+                </h2>
+                <p className="mt-4 text-white/70">
+                  Cada proyecto de Netland se desarrolla con seriedad, transparencia
+                  y cercanía con el cliente.
+                </p>
               </div>
             </Reveal>
-          ))}
+
+            <div className="mt-10 grid gap-4 sm:grid-cols-2">
+              {trustItems.map((item, i) => (
+                <Reveal key={item.title} delay={i * 80}>
+                  <div className="flex h-full items-center gap-4 rounded-md border border-white/10 bg-white/5 p-5 backdrop-blur transition-colors hover:border-netland-accent/50">
+                    <item.icon className="h-8 w-8 shrink-0 text-netland-accent" />
+                    <span className="text-sm font-medium leading-snug">{item.title}</span>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+
+          <Reveal delay={150}>
+            <div className="relative">
+              <div className="overflow-hidden rounded-2xl shadow-2xl">
+                <img
+                  src={entregallave}
+                  alt="Entrega de llaves a una familia feliz"
+                  loading="lazy"
+                  className="aspect-[4/3] w-full object-cover"
+                />
+              </div>
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-netland-dark/80 via-transparent to-netland-dark/20" />
+
+              <div className="absolute -bottom-6 -left-6 hidden w-44 overflow-hidden rounded-xl border-4 border-netland-dark shadow-xl sm:block">
+                <img
+                  src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80"
+                  alt="Casa entregada"
+                  loading="lazy"
+                  className="aspect-[4/3] w-full object-cover"
+                />
+              </div>
+
+              <div className="absolute right-6 top-6 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur">
+                <ShieldCheck className="h-4 w-4 text-netland-accent" />
+                Contrato protegido
+              </div>
+
+              <div className="absolute inset-x-4 bottom-6 rounded-xl bg-white/10 p-4 backdrop-blur md:inset-x-auto md:bottom-6 md:right-6 md:max-w-xs">
+                <p className="font-display text-lg font-bold text-white">
+                  Llave en mano, sueños cumplidos
+                </p>
+                <p className="mt-1 text-sm text-white/80">
+                  Entrega de terreno y contrato con firma.
+                </p>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </div>
     </section>
@@ -379,6 +423,89 @@ function StatsStrip() {
           <p className="mt-2 text-sm uppercase tracking-wider text-netland-muted">
             Intereses en cuotas
           </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ReferralSection() {
+  return (
+    <section className="section-padding bg-white">
+      <div className="container-netland">
+        <Reveal>
+          <div className="mx-auto mb-14 max-w-2xl text-center">
+            <p className="eyebrow justify-center">Refiere y gana</p>
+            <h2 className="font-display text-4xl font-semibold text-netland-dark sm:text-5xl">
+              Tu mejor publicidad eres tú
+            </h2>
+            <p className="mt-4 text-netland-muted">
+              Invita a tus amigos y familiares a invertir en Netland y gana
+              beneficios por cada persona que decida dar el paso.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="grid gap-8 lg:grid-cols-2">
+          <Reveal>
+            <Link
+              to="/refiere-y-gana"
+              className="group relative block overflow-hidden rounded-2xl shadow-soft transition-all duration-500 hover:-translate-y-1 hover:shadow-lift"
+            >
+              <div className="aspect-[4/3] overflow-hidden bg-netland-dark">
+                <img
+                  src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80"
+                  alt="Persona feliz participando en Refiere y gana"
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-netland-primary/95 via-netland-primary/30 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-8">
+                <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur">
+                  <Gift className="h-4 w-4 text-netland-accent" />
+                  Refiere y gana
+                </span>
+                <h3 className="font-display text-3xl font-bold text-white drop-shadow-md">
+                  Gana beneficios por recomendar Netland
+                </h3>
+                <p className="mt-2 max-w-md text-sm text-white/85">
+                  Comparte el programa con tus amigos y recibe recompensas por
+                  cada inversión realizada con tu referido.
+                </p>
+                <span className="mt-5 inline-flex items-center gap-2 rounded-full bg-netland-accent px-5 py-2.5 text-sm font-bold text-white transition-all group-hover:bg-white group-hover:text-netland-primary">
+                  Ver el programa
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </span>
+              </div>
+            </Link>
+          </Reveal>
+
+          <Reveal delay={120}>
+            <div className="group relative block overflow-hidden rounded-2xl shadow-soft">
+              <div className="aspect-[4/3] overflow-hidden bg-netland-dark">
+                <img
+                  src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=900&q=80"
+                  alt="Casa soñada junto a Netland"
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-8">
+                <span className="mb-3 inline-block rounded-full bg-white/15 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur">
+                  Netland
+                </span>
+                <h3 className="font-display text-3xl font-bold text-white drop-shadow-md">
+                  La casa de tus sueños te espera
+                </h3>
+                <p className="mt-2 max-w-md text-sm text-white/85">
+                  Con cada recomendación ayudas a otra familia a conseguir su
+                  lote ideal y tú también ganas.
+                </p>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </div>
     </section>
