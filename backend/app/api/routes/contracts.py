@@ -719,6 +719,8 @@ def get_contract_pdf(
             for v in vouchers
         ]
     
+    company = _company_config(db)
+
     pdf = generate_contract_pdf(
         contract_number=contract.contract_number,
         company_name=settings.COMPANY_NAME,
@@ -907,7 +909,6 @@ def emit_contract_document(
         company_ruc=company["company_ruc"],
         company_address=company["company_address"],
         company_razon_social=company["company_razon_social"],
-        company_accounts=company["company_accounts"],
         company_phone=settings.COMPANY_WHATSAPP,
         customer_name=detail["owner_name"],
         customer_document=detail["owner_document"],

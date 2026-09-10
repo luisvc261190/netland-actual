@@ -3115,7 +3115,7 @@ def generate_payment_schedule_pdf(
 
         header_height = 8 * mm
         col_widths = [18 * mm, 26 * mm, 30 * mm, 28 * mm, 28 * mm, 30 * mm]
-        col_labels = ["CUOTA", "VENCIMIENTO", "PROGRAMADO", "PAGADO", "SALDO", "ESTADO"]
+        col_labels = ["CUOTA", "VENCIMIENTO", "PROGRAMADO", "PAGADO", "SALDO CAPITAL", "ESTADO"]
 
         c.setFillColor(navy)
         c.roundRect(margin_left, y - header_height, content_width, header_height, 1.5 * mm, stroke=0, fill=1)
@@ -3138,7 +3138,13 @@ def generate_payment_schedule_pdf(
         nonlocal y
         c.setFillColor(grey)
         c.setFont("Helvetica", 8.5)
-        c.drawString(margin_left + 3 * mm, y, "Montos expresados en soles (S/).")
+        y -= 4 * mm
+        c.setFont("Helvetica", 7.5)
+        c.drawString(
+            margin_left + 3 * mm,
+            y,
+            "* El saldo muestra el capital pendiente sobre el monto financiado total después de cada cuota.",
+        )
         y -= 5 * mm
 
     def _new_page():
@@ -3192,6 +3198,20 @@ def generate_payment_schedule_pdf(
     row_height = 7 * mm
     col_widths = [18 * mm, 26 * mm, 30 * mm, 28 * mm, 28 * mm, 30 * mm]
 
+    # Saldo amortizado: capital pendiente sobre el monto financiado total.
+    total_scheduled = sum(float(i.get("scheduled_amount", 0)) for i in installments)
+    total_paid = sum(float(i.get("paid_amount", 0)) for i in installments)
+    total_balance = sum(float(i.get("balance", 0)) for i in installments)
+    rounding_diff = financed_amount - total_scheduled
+    running = 0.0
+    saldo_after = []
+    for ix, inst in enumerate(installments):
+        amortization = float(inst.get("scheduled_amount", 0))
+        if ix == len(installments) - 1:
+            amortization += rounding_diff
+        running += amortization
+        saldo_after.append(max(0.0, financed_amount - running))
+
     _draw_schedule_header()
 
     for idx, inst in enumerate(installments):
@@ -3233,13 +3253,39 @@ def generate_payment_schedule_pdf(
 
         c.setFont("Helvetica-Bold", 8)
         c.setFillColor(dark)
-        c.drawRightString(x_cursor + col_widths[4] - 2 * mm, text_y, format_soles(float(inst.get("balance", 0))))
+        saldo_val = saldo_after[idx] if idx < len(saldo_after) else 0.0
+        c.drawRightString(x_cursor + col_widths[4] - 2 * mm, text_y, format_soles(saldo_val))
         x_cursor += col_widths[4]
 
         c.setFillColor(_status_color(state))
         c.setFont("Helvetica-Bold", 7.5)
         label_w = c.stringWidth(state_label, "Helvetica-Bold", 7.5)
         c.drawCentredString(x_cursor + col_widths[5] / 2, text_y, state_label)
+
+        y -= row_height
+
+    # Fila de totales del cronograma
+    if installments:
+        if y - row_height < bottom_limit:
+            _new_page()
+
+        c.setFillColor(pal["blue_pale"])
+        c.setStrokeColor(border)
+        c.setLineWidth(0.5)
+        c.rect(margin_left, y - row_height, content_width, row_height, stroke=1, fill=1)
+
+        c.setFont("Helvetica-Bold", 8)
+        c.setFillColor(navy)
+        c.drawString(margin_left + 2 * mm, y - 4.8 * mm, "TOTALES")
+
+        x_cursor = margin_left + col_widths[0] + col_widths[1]
+        c.drawRightString(x_cursor + col_widths[2] - 2 * mm, y - 4.8 * mm, format_soles(total_scheduled))
+        x_cursor += col_widths[2]
+        c.setFillColor(colors.HexColor("#16a34a"))
+        c.drawRightString(x_cursor + col_widths[3] - 2 * mm, y - 4.8 * mm, format_soles(total_paid))
+        x_cursor += col_widths[3]
+        c.setFillColor(navy)
+        c.drawRightString(x_cursor + col_widths[4] - 2 * mm, y - 4.8 * mm, format_soles(total_balance))
 
         y -= row_height
 

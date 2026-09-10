@@ -303,6 +303,28 @@ function ContractSection({
     ["pendiente", "parcial"].includes(i.status)
   ).length;
 
+  const financedAmount =
+    contract.financing?.financed_amount ??
+    installments.reduce((sum, i) => sum + i.scheduled_amount, 0);
+  const totalScheduled = installments.reduce((sum, i) => sum + i.scheduled_amount, 0);
+  const totalPaidSchedule = installments.reduce((sum, i) => sum + i.paid_amount, 0);
+  const totalBalance = installments.reduce((sum, i) => sum + i.balance, 0);
+
+  const roundingDiff = financedAmount - totalScheduled;
+  const scheduleRows = installments.reduce<
+    Array<Installment & { saldo_capital: number }>
+  >((acc, inst, idx) => {
+    const isLast = idx === installments.length - 1;
+    const amortization = isLast ? inst.scheduled_amount + roundingDiff : inst.scheduled_amount;
+    const prevSaldo = idx === 0 ? financedAmount : acc[idx - 1].saldo_capital;
+    acc.push({ ...inst, saldo_capital: Math.max(0, prevSaldo - amortization) });
+    return acc;
+  }, []);
+
+  const nextToPayId = installments.find((i) =>
+    ["pendiente", "parcial", "vencida"].includes(i.status)
+  )?.id;
+
   return (
     <Card className="mb-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -390,15 +412,22 @@ function ContractSection({
                 "Estado",
               ]}
             >
-              {installments.map((inst) => (
-                <tr key={inst.id} className="hover:bg-netland-light/30">
+              {scheduleRows.map((inst) => (
+                <tr
+                  key={inst.id}
+                  className={`transition-colors hover:bg-netland-light/30 ${
+                    inst.id === nextToPayId ? "bg-amber-50/60" : ""
+                  }`}
+                >
                   <td className="px-5 py-2.5 font-semibold">
                     {String(inst.installment_number).padStart(2, "0")}
                   </td>
                   <td className="px-5 py-2.5 text-sm">{formatDate(inst.due_date)}</td>
                   <td className="px-5 py-2.5">{formatSoles(inst.scheduled_amount)}</td>
                   <td className="px-5 py-2.5">{formatSoles(inst.paid_amount)}</td>
-                  <td className="px-5 py-2.5 font-medium">{formatSoles(inst.balance)}</td>
+                  <td className="px-5 py-2.5 font-medium">
+                    {formatSoles(inst.saldo_capital)}
+                  </td>
                   <td className="px-5 py-2.5">
                     <Badge color={INSTALLMENT_STATUS_COLORS[inst.status]}>
                       {INSTALLMENT_STATUS[inst.status]}
@@ -406,6 +435,15 @@ function ContractSection({
                   </td>
                 </tr>
               ))}
+              <tr className="border-t-2 border-netland-light bg-netland-light/20 font-semibold text-netland-dark">
+                <td className="px-5 py-3" colSpan={2}>
+                  Totales
+                </td>
+                <td className="px-5 py-3">{formatSoles(totalScheduled)}</td>
+                <td className="px-5 py-3 text-netland-primary">{formatSoles(totalPaidSchedule)}</td>
+                <td className="px-5 py-3">{formatSoles(totalBalance)}</td>
+                <td className="px-5 py-3" />
+              </tr>
             </Table>
           )}
         </div>
