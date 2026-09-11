@@ -6,7 +6,7 @@ import httpx
 
 from app.core.database import get_db
 from app.core.dependencies import require_admin, require_roles, get_current_user
-from app.domain.models import Block, Lot, Project, ProjectDocument, ProjectImage, ProjectVideo, Promotion, User
+from app.domain.models import Block, Lot, Project, ProjectDocument, ProjectImage, ProjectVideo, User
 from app.schemas.project import (
     BlockCreate,
     BlockOut,
@@ -22,9 +22,6 @@ from app.schemas.project import (
     ProjectCreate,
     ProjectOut,
     ProjectUpdate,
-    PromotionCreate,
-    PromotionOut,
-    PromotionUpdate,
     VideoCreate,
 )
 
@@ -67,17 +64,6 @@ def list_projects(
         q = q.filter(Project.name.ilike(f"%{search}%"))
     projects = q.order_by(Project.id.asc()).all()
     return [_project_out(p, db) for p in projects]
-
-
-@router.get("/promotions", response_model=list[PromotionOut])
-def list_promotions(
-    only_active: bool = Query(default=True),
-    db: Session = Depends(get_db),
-):
-    q = db.query(Promotion)
-    if only_active:
-        q = q.filter(Promotion.is_active.is_(True))
-    return [PromotionOut.model_validate(p) for p in q.all()]
 
 
 @router.get("/{project_identifier}", response_model=ProjectOut)
@@ -334,39 +320,6 @@ def delete_document(doc_id: int, db: Session = Depends(get_db)):
     if not doc:
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
     db.delete(doc)
-    db.commit()
-
-
-# ---- Promotions CRUD (admin) ----
-
-@router.post("/promotions", response_model=PromotionOut, dependencies=[Depends(require_admin)])
-def create_promotion(payload: PromotionCreate, db: Session = Depends(get_db)):
-    get_project_or_404(db, payload.project_id)
-    promotion = Promotion(**payload.model_dump())
-    db.add(promotion)
-    db.commit()
-    db.refresh(promotion)
-    return PromotionOut.model_validate(promotion)
-
-
-@router.put("/promotions/{promotion_id}", response_model=PromotionOut, dependencies=[Depends(require_admin)])
-def update_promotion(promotion_id: int, payload: PromotionUpdate, db: Session = Depends(get_db)):
-    promotion = db.get(Promotion, promotion_id)
-    if not promotion:
-        raise HTTPException(status_code=404, detail="Promoción no encontrada.")
-    for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(promotion, key, value)
-    db.commit()
-    db.refresh(promotion)
-    return PromotionOut.model_validate(promotion)
-
-
-@router.delete("/promotions/{promotion_id}", status_code=204, dependencies=[Depends(require_admin)])
-def delete_promotion(promotion_id: int, db: Session = Depends(get_db)):
-    promotion = db.get(Promotion, promotion_id)
-    if not promotion:
-        raise HTTPException(status_code=404, detail="Promoción no encontrada.")
-    db.delete(promotion)
     db.commit()
 
 

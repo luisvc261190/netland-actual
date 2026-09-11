@@ -222,38 +222,3 @@ class DocumentUpdate(BaseModel):
     url: str | None = None
     description: str | None = None
     is_published: bool | None = None
-
-
-class PromotionCreate(BaseModel):
-    project_id: int
-    name: str
-    description: str = ""
-    old_price: float | None = None
-    promo_price: float | None = None
-    start_date: Any = None
-    end_date: Any = None
-    is_active: bool = True
-
-
-class PromotionUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    old_price: float | None = None
-    promo_price: float | None = None
-    start_date: Any = None
-    end_date: Any = None
-    is_active: bool | None = None
-
-
-class PromotionOut(BaseModel):
-    id: int
-    project_id: int
-    name: str
-    description: str
-    old_price: float | None = None
-    promo_price: float | None = None
-    start_date: Any = None
-    end_date: Any = None
-    is_active: bool
-
-    model_config = ConfigDict(from_attributes=True)

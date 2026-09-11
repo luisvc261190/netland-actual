@@ -152,9 +152,6 @@ class Project(Base):
     documents = relationship(
         "ProjectDocument", back_populates="project", cascade="all, delete-orphan"
     )
-    promotions = relationship(
-        "Promotion", back_populates="project", cascade="all, delete-orphan"
-    )
 
 
 class Block(Base):
@@ -269,25 +266,6 @@ class ProjectDocument(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     project = relationship("Project", back_populates="documents")
-
-
-class Promotion(Base):
-    __tablename__ = "promotions"
-
-    id = Column(Integer, primary_key=True)
-    project_id = Column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
-    )
-    name = Column(String(200), nullable=False)
-    description = Column(Text, default="")
-    old_price = Column(Numeric(12, 2), nullable=True)
-    promo_price = Column(Numeric(12, 2), nullable=True)
-    start_date = Column(Date, nullable=True)
-    end_date = Column(Date, nullable=True)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    project = relationship("Project", back_populates="promotions")
 
 
 class Advisor(Base):
@@ -459,3 +437,26 @@ class SiteConfig(Base):
     key = Column(String(80), unique=True, nullable=False)
     value = Column(Text, default="")
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class SiteAnnouncement(Base):
+    """Aviso o promoción mostrado como pop-up en la web pública."""
+
+    __tablename__ = "site_announcements"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, default="")
+    kind = Column(String(20), default="announcement", nullable=False)
+    media_type = Column(String(10), default="image", nullable=False)
+    image_url = Column(String(500), default="")
+    button_phone = Column(String(20), default="")
+    is_active = Column(Boolean, default=True, nullable=False)
+    once_per_session = Column(Boolean, default=False, nullable=False)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    sort_order = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    __table_args__ = (Index("ix_site_announcements_is_active", "is_active"),)

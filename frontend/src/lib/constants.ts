@@ -11,7 +11,9 @@ export const whatsappLink = (
   message = "Hola Luis, estoy interesado en conocer los lotes disponibles de Netland.",
   to?: string
 ) => {
-  const number = (to?.replace(/\D/g, "") || WHATSAPP_NUMBER);
+  const digits = to?.replace(/\D/g, "") || WHATSAPP_NUMBER;
+  const number =
+    digits.length === 9 && digits.startsWith("9") ? `51${digits}` : digits;
   return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 };
 

@@ -91,16 +91,21 @@ export interface ProjectDocument {
   description: string;
 }
 
-export interface Promotion {
+export interface Announcement {
   id: number;
-  project_id: number;
-  name: string;
+  title: string;
   description: string;
-  old_price: number | null;
-  promo_price: number | null;
+  kind: "announcement" | "promotion";
+  media_type: "image" | "video";
+  image_url: string;
+  button_phone: string;
+  is_active: boolean;
+  once_per_session: boolean;
   start_date: string | null;
   end_date: string | null;
-  is_active: boolean;
+  sort_order: number;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface Advisor {

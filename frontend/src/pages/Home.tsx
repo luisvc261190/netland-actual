@@ -2,12 +2,16 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
+  Award,
   Building2,
   CalendarCheck,
   ChevronLeft,
   ChevronRight,
+  Crown,
   FileCheck2,
+  Gift,
   HandCoins,
+  Handshake,
   HeartHandshake,
   Landmark,
   MapPin,
@@ -15,8 +19,10 @@ import {
   Play,
   ShieldCheck,
   Sparkles,
+  Star,
   TrendingUp,
   UserCheck,
+  Users,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { whatsappLink } from "../lib/constants";
@@ -67,6 +73,51 @@ const whyItems = [
     title: "Seguridad",
     text: "Documentación en regla y procesos claros para que tu inversión esté protegida.",
   },
+];
+
+const referralBenefits = [
+  {
+    icon: Gift,
+    title: "Recompensas atractivas",
+    text: "Gana beneficios que aumentan con cada recomendación exitosa.",
+  },
+  {
+    icon: Handshake,
+    title: "Atención VIP",
+    text: "Tu referido recibe acompañamiento preferencial de principio a fin.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Proceso transparente",
+    text: "Seguimiento claro de cada recomendación y de tu recompensa.",
+  },
+];
+
+const referralSteps = [
+  {
+    icon: Users,
+    step: "1",
+    title: "Comparte",
+    text: "Invita a tus amigos y familiares a conocer Netland.",
+  },
+  {
+    icon: Handshake,
+    step: "2",
+    title: "Conectamos",
+    text: "Nuestro equipo los atiende con atención preferencial.",
+  },
+  {
+    icon: Gift,
+    step: "3",
+    title: "Ganas",
+    text: "Cuando tu referido avanza, tú recibes tu recompensa.",
+  },
+];
+
+const referralLevels = [
+  { icon: Award, level: "Bronce", referrals: "1–2", color: "#92400e" },
+  { icon: Star, level: "Plata", referrals: "3–5", color: "#64748b" },
+  { icon: Crown, level: "Oro", referrals: "6+", color: "#eab308" },
 ];
 
 const HERO_IMAGE =
@@ -529,7 +580,11 @@ function ReferralSection() {
     <section className="section-padding bg-white">
       <div className="container-netland">
         <Reveal>
-          <div className="mx-auto mb-14 max-w-2xl text-center">
+          <div className="mx-auto mb-16 max-w-2xl text-center">
+            <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-netland-light px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-netland-primary">
+              <HeartHandshake className="h-4 w-4" />
+              Programa de referidos
+            </span>
             <p className="eyebrow justify-center">Refiere y gana</p>
             <h2 className="font-display text-4xl font-semibold text-netland-dark sm:text-5xl">
               Tu mejor publicidad eres tú
@@ -541,7 +596,25 @@ function ReferralSection() {
           </div>
         </Reveal>
 
-        <div className="grid gap-8 lg:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-3">
+          {referralBenefits.map((item, i) => (
+            <Reveal key={item.title} delay={i * 100}>
+              <div className="group h-full rounded-2xl border border-netland-light bg-netland-background p-7 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-netland-primary/25 hover:shadow-lift">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-netland-light text-netland-primary transition-colors group-hover:bg-netland-primary group-hover:text-white">
+                  <item.icon className="h-6 w-6" />
+                </div>
+                <h3 className="font-display text-xl font-semibold text-netland-dark">
+                  {item.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-netland-muted">
+                  {item.text}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        <div className="mt-16 grid gap-8 lg:grid-cols-2">
           <Reveal>
             <Link
               to="/refiere-y-gana"
@@ -596,6 +669,62 @@ function ReferralSection() {
             </div>
           </Reveal>
         </div>
+
+        <Reveal>
+          <div className="mt-16 overflow-hidden rounded-3xl bg-netland-dark">
+            <div className="relative">
+              <div className="absolute inset-0 opacity-25">
+                <img
+                  src={refiereGana}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-netland-dark via-netland-dark/90 to-netland-dark/60" />
+
+              <div className="relative z-10 grid gap-12 px-8 py-14 text-white sm:grid-cols-3 sm:px-12">
+                {referralSteps.map((item, i) => (
+                  <Reveal key={item.step} delay={i * 120}>
+                    <div className="text-center sm:text-left">
+                      <div className="relative mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-netland-primary text-white shadow-lg sm:mx-0">
+                        <item.icon className="h-8 w-8" />
+                        <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-netland-accent text-xs font-bold text-white">
+                          {item.step}
+                        </span>
+                      </div>
+                      <h4 className="font-display text-xl font-semibold">
+                        {item.title}
+                      </h4>
+                      <p className="mt-2 text-sm leading-relaxed text-white/70">
+                        {item.text}
+                      </p>
+                    </div>
+                  </Reveal>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative z-10 border-t border-white/10 px-8 py-5 sm:px-12">
+              <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+                <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">
+                  Niveles de recompensa
+                </span>
+                {referralLevels.map((item) => (
+                  <span
+                    key={item.level}
+                    className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-semibold text-white"
+                    style={{ backgroundColor: item.color }}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.level}
+                    <span className="text-white/70">{item.referrals}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Reveal>
       </div>
     </section>
   );

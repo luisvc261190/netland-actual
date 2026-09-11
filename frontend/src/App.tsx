@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
 import { WhatsAppFloat } from "./components/layout/WhatsAppFloat";
+import { AnnouncementPopup } from "./components/AnnouncementPopup";
 import { PageLoader } from "./components/ui/PageLoader";
 import { ToastProvider } from "./components/ui/Toast";
 import { AuthProvider, useAuth } from "./features/admin/AuthContext";
@@ -45,7 +46,8 @@ const AdminCapturedClients = lazy(() =>
   import("./features/admin/pages/CapturedClients")
 );
 const AdminAdvisors = lazy(() => import("./features/admin/pages/Advisors"));
-const AdminPromotions = lazy(() => import("./features/admin/pages/Promotions"));
+
+const AdminAnnouncements = lazy(() => import("./features/admin/pages/Announcements"));
 const AdminQuotes = lazy(() => import("./features/admin/pages/Quotes"));
 const AdminVisits = lazy(() => import("./features/admin/pages/Visits"));
 const AdminMedia = lazy(() => import("./features/admin/pages/Media"));
@@ -151,10 +153,10 @@ export default function App() {
               }
             />
             <Route
-              path="promociones"
+              path="anuncios"
               element={
                 <RequireRole roles={ADMIN_ROLES}>
-                  <AdminPromotions />
+                  <AdminAnnouncements />
                 </RequireRole>
               }
             />
@@ -293,6 +295,7 @@ function PublicLayout() {
       </main>
       <Footer />
       <WhatsAppFloat />
+      <AnnouncementPopup />
     </div>
   );
 }

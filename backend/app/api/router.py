@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    announcements,
     auth,
     backups,
     collections,
@@ -44,3 +45,5 @@ api_router.include_router(installments.router)
 api_router.include_router(sales.router)
 # Módulo de Respaldos (solo SUPER_ADMIN)
 api_router.include_router(backups.router)
+# Módulo de Anuncios / pop-up de la web pública
+api_router.include_router(announcements.router)

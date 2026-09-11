@@ -33,10 +33,15 @@ export default {
           "0%": { opacity: "0" },
           "100%": { opacity: "1" },
         },
+        popIn: {
+          "0%": { opacity: "0", transform: "translateY(16px) scale(0.96)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
       },
       animation: {
         fadeUp: "fadeUp 0.8s ease-out both",
         fadeIn: "fadeIn 0.6s ease-out both",
+        popIn: "popIn 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) both",
       },
     },
   },

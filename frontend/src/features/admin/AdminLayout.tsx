@@ -9,12 +9,12 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Menu,
   MessageSquare,
   Milestone,
   Quote as QuoteIcon,
   Settings,
-  Sparkles,
   Users,
   X,
   DollarSign,
@@ -28,6 +28,7 @@ import { ROLE_LABELS } from "../../lib/constants";
 
 const navItems = [
   {
+    section: "Principal",
     to: "/admin",
     label: "Dashboard",
     icon: LayoutDashboard,
@@ -35,102 +36,119 @@ const navItems = [
     roles: ["SUPER_ADMIN", "ADMIN", "ASESOR", "VENTAS", "COBRANZAS", "SUPERVISOR"],
   },
   {
+    section: "Proyectos",
     to: "/admin/proyectos",
     label: "Proyectos",
     icon: FolderKanban,
     roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
+    section: "Proyectos",
     to: "/admin/lotes",
     label: "Lotes",
     icon: Milestone,
     roles: ["SUPER_ADMIN", "ADMIN", "ASESOR"],
   },
   {
+    section: "Comercial",
     to: "/admin/leads",
     label: "Leads",
     icon: MessageSquare,
     roles: ["SUPER_ADMIN", "ADMIN", "ASESOR"],
   },
   {
+    section: "Comercial",
     to: "/admin/clientes-captados",
     label: "Clientes captados",
     icon: ClipboardList,
     roles: ["SUPER_ADMIN", "ADMIN", "ASESOR"],
   },
   {
-    to: "/admin/ventas",
-    label: "Ventas",
-    icon: BadgePercent,
-    roles: ["SUPER_ADMIN", "ADMIN", "VENTAS", "SUPERVISOR"],
-  },
-  {
-    to: "/admin/asesores",
-    label: "Asesores",
-    icon: Users,
-    roles: ["SUPER_ADMIN", "ADMIN"],
-  },
-  {
-    to: "/admin/propietarios",
-    label: "Propietarios",
-    icon: UserCheck,
-    roles: ["SUPER_ADMIN", "ADMIN", "VENTAS", "COBRANZAS", "SUPERVISOR"],
-  },
-  {
-    to: "/admin/contratos",
-    label: "Contratos",
-    icon: FileSignature,
-    roles: ["SUPER_ADMIN", "ADMIN", "VENTAS", "COBRANZAS", "SUPERVISOR"],
-  },
-  {
-    to: "/admin/pagos",
-    label: "Pagos",
-    icon: Wallet,
-    roles: ["SUPER_ADMIN", "ADMIN", "COBRANZAS", "SUPERVISOR"],
-  },
-  {
-    to: "/admin/cobranzas",
-    label: "Cobranzas",
-    icon: DollarSign,
-    roles: ["SUPER_ADMIN", "ADMIN", "COBRANZAS", "SUPERVISOR"],
-  },
-  {
-    to: "/admin/promociones",
-    label: "Promociones",
-    icon: Sparkles,
-    roles: ["SUPER_ADMIN", "ADMIN"],
-  },
-  {
+    section: "Comercial",
     to: "/admin/cotizaciones",
     label: "Cotizaciones",
     icon: QuoteIcon,
     roles: ["SUPER_ADMIN", "ADMIN", "ASESOR", "VENTAS"],
   },
   {
+    section: "Comercial",
     to: "/admin/visitas",
     label: "Visitas",
     icon: CalendarDays,
     roles: ["SUPER_ADMIN", "ADMIN", "ASESOR"],
   },
   {
+    section: "Ventas",
+    to: "/admin/ventas",
+    label: "Ventas",
+    icon: BadgePercent,
+    roles: ["SUPER_ADMIN", "ADMIN", "VENTAS", "SUPERVISOR"],
+  },
+  {
+    section: "Ventas",
+    to: "/admin/asesores",
+    label: "Asesores",
+    icon: Users,
+    roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    section: "Ventas",
+    to: "/admin/propietarios",
+    label: "Propietarios",
+    icon: UserCheck,
+    roles: ["SUPER_ADMIN", "ADMIN", "VENTAS", "COBRANZAS", "SUPERVISOR"],
+  },
+  {
+    section: "Ventas",
+    to: "/admin/contratos",
+    label: "Contratos",
+    icon: FileSignature,
+    roles: ["SUPER_ADMIN", "ADMIN", "VENTAS", "COBRANZAS", "SUPERVISOR"],
+  },
+  {
+    section: "Finanzas",
+    to: "/admin/pagos",
+    label: "Pagos",
+    icon: Wallet,
+    roles: ["SUPER_ADMIN", "ADMIN", "COBRANZAS", "SUPERVISOR"],
+  },
+  {
+    section: "Finanzas",
+    to: "/admin/cobranzas",
+    label: "Cobranzas",
+    icon: DollarSign,
+    roles: ["SUPER_ADMIN", "ADMIN", "COBRANZAS", "SUPERVISOR"],
+  },
+  {
+    section: "Marketing",
+    to: "/admin/anuncios",
+    label: "Anuncios (pop-up)",
+    icon: Megaphone,
+    roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    section: "Sistema",
     to: "/admin/multimedia",
     label: "Multimedia",
     icon: FileText,
     roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
+    section: "Sistema",
     to: "/admin/configuracion",
     label: "Configuración",
     icon: Settings,
     roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
+    section: "Sistema",
     to: "/admin/usuarios",
     label: "Usuarios",
     icon: Users,
     roles: ["SUPER_ADMIN"],
   },
   {
+    section: "Sistema",
     to: "/admin/backups",
     label: "Backups",
     icon: Database,
@@ -169,25 +187,40 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-4">
-          {visibleNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-netland-primary text-white"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
-                }`
-              }
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </NavLink>
-          ))}
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-4 py-4">
+          {visibleNavItems.map((item, index) => {
+            const prevItem = visibleNavItems[index - 1];
+            const showSection = !prevItem || prevItem.section !== item.section;
+
+            return (
+              <div key={item.to}>
+                {showSection && (
+                  <p
+                    className={`px-4 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 ${
+                      index === 0 ? "pt-0" : ""
+                    }`}
+                  >
+                    {item.section}
+                  </p>
+                )}
+                <NavLink
+                  to={item.to}
+                  end={item.end}
+                  onClick={() => setOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
+                      isActive
+                        ? "bg-netland-primary text-white"
+                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                    }`
+                  }
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </NavLink>
+              </div>
+            );
+          })}
         </nav>
 
         <div className="border-t border-white/10 p-4">

@@ -127,10 +127,6 @@ check("dashboard lots", stats["lots_total"] == 15 and stats["lots_reserved"] >= 
 r = client.get("/api/dashboard/stats")
 check("dashboard requires auth", r.status_code == 401, str(r.status_code))
 
-# Promotions empty list
-r = client.get("/api/projects/promotions")
-check("promotions empty", r.status_code == 200 and r.json() == [], str(r.status_code))
-
 print(f"\nRESULTADO: {passed} passed, {failed} failed")
 if failed:
     raise SystemExit(1)
