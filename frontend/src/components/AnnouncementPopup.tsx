@@ -67,7 +67,7 @@ function AnnouncementMedia({
             onResolution(el.videoWidth, el.videoHeight);
           }
         }}
-        className={`${className} object-contain`}
+        className={`${className} object-cover`}
       />
     );
   }
@@ -102,7 +102,7 @@ function CarouselControls({
       <button
         onClick={() => onChange(index === 0 ? count - 1 : index - 1)}
         aria-label="Anuncio anterior"
-        className="p-1 text-netland-muted transition-colors hover:text-netland-primary"
+        className="p-1 text-white/80 transition-colors hover:text-white"
       >
         <ChevronLeft className="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
@@ -115,7 +115,7 @@ function CarouselControls({
             className={`h-2 rounded-full transition-all duration-300 ${
               i === index
                 ? "w-6 bg-netland-accent sm:w-5"
-                : "w-2 bg-netland-light hover:bg-netland-muted/40 sm:bg-netland-muted/25 sm:hover:bg-netland-muted/60"
+                : "w-2 bg-white/30 hover:bg-white/50"
             }`}
           />
         ))}
@@ -123,7 +123,7 @@ function CarouselControls({
       <button
         onClick={() => onChange((index + 1) % count)}
         aria-label="Anuncio siguiente"
-        className="p-1 text-netland-muted transition-colors hover:text-netland-primary"
+        className="p-1 text-white/80 transition-colors hover:text-white"
       >
         <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4" />
       </button>
@@ -241,32 +241,30 @@ export function AnnouncementPopup() {
       aria-label={active.title}
     >
       <div
-        className={`relative w-full ${panelWidth} max-h-[92vh] animate-popIn overflow-hidden rounded-3xl bg-white shadow-2xl transition-all duration-300 sm:rounded-2xl sm:shadow-xl sm:ring-1 sm:ring-black/5`}
         onClick={(event) => event.stopPropagation()}
+        className={`relative w-full ${panelWidth} max-h-[86vh] overflow-hidden rounded-3xl bg-netland-dark shadow-2xl transition-all duration-300 sm:rounded-2xl sm:shadow-xl sm:ring-1 sm:ring-white/20 animate-popIn`}
       >
-        <div className="relative">
+        <div
+          className={`relative flex min-h-[22rem] w-full overflow-hidden sm:min-h-[26rem] ${
+            resolution ? "" : "aspect-[3/4] sm:aspect-video"
+          }`}
+          style={
+            resolution
+              ? { aspectRatio: `${resolution.width} / ${resolution.height}` }
+              : undefined
+          }
+        >
           {active.image_url ? (
-            <div
-              className={`relative max-h-[70vh] w-full overflow-hidden bg-netland-dark sm:max-h-[60vh] ${
-                resolution ? "" : "aspect-video"
-              }`}
-              style={
-                resolution
-                  ? { aspectRatio: `${resolution.width} / ${resolution.height}` }
-                  : undefined
+            <AnnouncementMedia
+              key={active.id}
+              announcement={active}
+              onResolution={(width, height) =>
+                setResolution({ width, height })
               }
-            >
-              <AnnouncementMedia
-                key={active.id}
-                announcement={active}
-                onResolution={(width, height) =>
-                  setResolution({ width, height })
-                }
-                className="absolute inset-0 h-full w-full"
-              />
-            </div>
+              className="absolute inset-0 h-full w-full"
+            />
           ) : (
-            <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-netland-primary to-netland-primaryDark">
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-netland-primary to-netland-primaryDark">
               <Megaphone className="h-10 w-10 text-white/80" />
             </div>
           )}
@@ -276,64 +274,65 @@ export function AnnouncementPopup() {
           <button
             onClick={close}
             aria-label="Cerrar"
-            className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-1.5 text-netland-dark shadow-md transition-colors hover:bg-white sm:right-4 sm:top-4 sm:bg-white/70 sm:p-1.5 sm:shadow-none sm:backdrop-blur-sm sm:hover:bg-white/90"
+            className="absolute right-3 top-3 z-20 rounded-full bg-white/90 p-1.5 text-netland-dark shadow-md transition-colors hover:bg-white sm:right-4 sm:top-4 sm:bg-white/70 sm:shadow-none sm:backdrop-blur-sm sm:hover:bg-white/90"
           >
             <X className="h-4 w-4" />
           </button>
-        </div>
 
-        {hasContent ? (
-          <div className="p-5 sm:p-6">
-            {active.title && (
-              <h3 className="font-display text-xl font-bold text-netland-dark sm:text-2xl">
-                {active.title}
-              </h3>
-            )}
+          {hasContent ? (
+            <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 sm:inset-x-4 sm:bottom-4">
+              <div className="pointer-events-auto max-h-[45vh] overflow-y-auto rounded-xl bg-black/35 p-3 ring-1 ring-white/10 backdrop-blur-md sm:p-4">
+                {active.title && (
+                  <h3 className="font-display text-base font-bold leading-snug text-white sm:text-lg">
+                    {active.title}
+                  </h3>
+                )}
 
-            {active.description && (
-              <p className="mt-2 text-sm leading-relaxed text-netland-muted sm:max-h-24 sm:overflow-y-auto">
-                {active.description}
-              </p>
-            )}
+                {active.description && (
+                  <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-white/85 sm:text-[13px]">
+                    {active.description}
+                  </p>
+                )}
 
-            {active.button_phone && (
-              <div className="mt-5">
-                <a
-                  href={whatsappLink(
-                    `Hola, estoy interesado en "${active.title}" de Netland.`,
-                    active.button_phone
-                  )}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={close}
-                  className="btn-accent flex w-full"
-                >
-                  Solicito información
-                </a>
+                {(active.button_phone || multiple) && (
+                  <div className="mt-2.5 flex items-center justify-between gap-3">
+                    {multiple && (
+                      <CarouselControls
+                        count={pending.length}
+                        index={index}
+                        onChange={setIndex}
+                      />
+                    )}
+                    {active.button_phone && (
+                      <a
+                        href={whatsappLink(
+                          `Hola, estoy interesado en "${active.title}" de Netland.`,
+                          active.button_phone
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={close}
+                        className="btn-accent ml-auto flex w-auto items-center whitespace-nowrap !px-3.5 !py-2 text-sm leading-none"
+                      >
+                        Solicito información
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-
-            {multiple && (
-              <div className="mt-5">
+            </div>
+          ) : multiple ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center bg-gradient-to-t from-black/60 to-transparent px-3 pb-4 pt-12">
+              <div className="pointer-events-auto">
                 <CarouselControls
                   count={pending.length}
                   index={index}
                   onChange={setIndex}
                 />
               </div>
-            )}
-          </div>
-        ) : (
-          multiple && (
-            <div className="p-5">
-              <CarouselControls
-                count={pending.length}
-                index={index}
-                onChange={setIndex}
-              />
             </div>
-          )
-        )}
+          ) : null}
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText, Image as ImageIcon, Plus, Trash2, Video, Upload } from "lucide-react";
 import { api } from "../../../lib/api";
 import type { GalleryItem, Project, ProjectDocument, ProjectVideo } from "../../../types";
@@ -32,6 +32,12 @@ export default function AdminMedia() {
     queryKey: ["projects-admin"],
     queryFn: () => api.get<Project[]>("/projects"),
   });
+
+  useEffect(() => {
+    if (projectId === "" && projects && projects.length > 0) {
+      setProjectId(projects[0].id);
+    }
+  }, [projectId, projects]);
 
   const selectedProject = projectId || projects?.[0]?.id;
 
@@ -184,7 +190,7 @@ export default function AdminMedia() {
             <option value="">Seleccionar proyecto...</option>
             {projects?.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.short_name}
+                {p.name}
               </option>
             ))}
           </Select>

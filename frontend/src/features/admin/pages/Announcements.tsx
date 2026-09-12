@@ -1,9 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { BadgePercent, Eye, EyeOff, Image as ImageIcon, Megaphone, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  BadgePercent,
+  CalendarDays,
+  Image as ImageIcon,
+  Megaphone,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Video as VideoIcon,
+} from "lucide-react";
 import { api } from "../../../lib/api";
 import type { Announcement } from "../../../types";
-import { Badge, Button, Card, Field, Input, PageHeader, Select, Table, Textarea } from "../ui";
+import { Badge, Button, Card, Field, Input, PageHeader, Select, Textarea } from "../ui";
 import { Modal } from "../../../components/ui/Modal";
 import { FileUploader } from "../../../components/ui/FileUploader";
 import { EmptyState } from "../../../components/ui/EmptyState";
@@ -35,6 +45,43 @@ function formatDate(value: string | null): string {
   if (!value) return "";
   const [y, m, d] = value.split("-");
   return `${d}/${m}/${y}`;
+}
+
+function dateRange(announcement: Announcement): string {
+  if (!announcement.start_date && !announcement.end_date) return "Siempre visible";
+  return `${announcement.start_date ? formatDate(announcement.start_date) : "—"} → ${announcement.end_date ? formatDate(announcement.end_date) : "—"}`;
+}
+
+function validity(announcement: Announcement): { label: string; color: string } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = announcement.start_date ? new Date(`${announcement.start_date}T00:00:00`) : null;
+  const end = announcement.end_date ? new Date(`${announcement.end_date}T00:00:00`) : null;
+  if (!start && !end) return { label: "Siempre visible", color: "#0d7a44" };
+  if (end && end < today) return { label: "Vencido", color: "#dc2626" };
+  if (start && start > today) return { label: "Programado", color: "#2563eb" };
+  return { label: "Vigente", color: "#0d7a44" };
+}
+
+function Toggle({ checked, label, onChange }: { checked: boolean; label: string; onChange: () => void }) {
+  return (
+    <button type="button" onClick={onChange} className="flex items-center gap-2" title={label}>
+      <span
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+          checked ? "bg-netland-primary" : "bg-netland-light"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-6" : "translate-x-1"
+          }`}
+        />
+      </span>
+      <span className={`text-xs font-semibold ${checked ? "text-netland-primary" : "text-netland-muted"}`}>
+        {checked ? "Activo" : "Inactivo"}
+      </span>
+    </button>
+  );
 }
 
 export default function AdminAnnouncements() {
@@ -118,8 +165,11 @@ export default function AdminAnnouncements() {
     setModalOpen(true);
   };
 
+  const items = announcements ?? [];
+
+
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Anuncios"
         subtitle="Pop-ups que se muestran en la web pública: promociones, rifas y eventos."
@@ -131,7 +181,9 @@ export default function AdminAnnouncements() {
         }
       />
 
-      {!announcements || announcements.length === 0 ? (
+
+
+      {items.length === 0 ? (
         <Card>
           <EmptyState
             title="Sin anuncios"
@@ -139,95 +191,130 @@ export default function AdminAnnouncements() {
           />
         </Card>
       ) : (
-        <Table headers={["Tipo", "Anuncio", "Vigencia", "Frecuencia", "Estado", "Acciones"]}>
-          {announcements.map((announcement) => (
-            <tr key={announcement.id} className="hover:bg-netland-light/30">
-              <td className="px-5 py-3">
-                <Badge color={announcement.kind === "promotion" ? "#e8a317" : "#1e40af"}>
-                  {announcement.kind === "promotion" ? (
-                    <><BadgePercent className="h-3 w-3" /> Promoción</>
-                  ) : (
-                    <><Megaphone className="h-3 w-3" /> Anuncio</>
-                  )}
-                </Badge>
-              </td>
-              <td className="px-5 py-3">
-                <div className="flex items-center gap-3">
-                  {announcement.image_url ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {items.map((announcement) => {
+            const state = validity(announcement);
+            return (
+              <article
+                key={announcement.id}
+                className="group flex flex-col overflow-hidden rounded-xl border border-netland-light bg-white shadow-soft transition-shadow hover:shadow-md"
+              >
+                <div className="relative aspect-[16/9] overflow-hidden bg-netland-background">
+                  {announcement.media_type === "video" && announcement.image_url ? (
+                    <>
+                      <video
+                        src={announcement.image_url}
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                        className="h-full w-full object-cover"
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm">
+                          <VideoIcon className="h-5 w-5" />
+                        </span>
+                      </span>
+                    </>
+                  ) : announcement.image_url ? (
                     <img
                       src={announcement.image_url}
                       alt={announcement.title}
-                      className="h-12 w-16 rounded-md object-cover"
+                      loading="lazy"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span className="flex h-12 w-16 items-center justify-center rounded-md bg-netland-light">
-                      <ImageIcon className="h-5 w-5 text-netland-muted" />
-                    </span>
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-netland-muted">
+                      {announcement.media_type === "video" ? (
+                        <VideoIcon className="h-9 w-9" />
+                      ) : (
+                        <ImageIcon className="h-9 w-9" />
+                      )}
+                      <span className="text-xs">Sin archivo</span>
+                    </div>
                   )}
-                  <div>
-                    <p className="font-semibold text-netland-dark">{announcement.title}</p>
-                    {announcement.description && (
-                      <p className="max-w-xs truncate text-xs text-netland-muted">
-                        {announcement.description}
-                      </p>
-                    )}
+
+                  <div className="absolute left-3 top-3 flex gap-2">
+                    <Badge color={announcement.kind === "promotion" ? "#e8a317" : "#1e40af"}>
+                      {announcement.kind === "promotion" ? (
+                        <>
+                          <BadgePercent className="h-3 w-3" /> Promoción
+                        </>
+                      ) : (
+                        <>
+                          <Megaphone className="h-3 w-3" /> Anuncio
+                        </>
+                      )}
+                    </Badge>
+                  </div>
+                  <div className="absolute right-3 top-3">
+                    <Badge color={state.color}>{state.label}</Badge>
                   </div>
                 </div>
-              </td>
-              <td className="px-5 py-3 text-sm text-netland-muted">
-                {announcement.start_date || announcement.end_date
-                  ? `${formatDate(announcement.start_date) || "…"} → ${formatDate(announcement.end_date) || "…"}`
-                  : "Siempre visible"}
-              </td>
-              <td className="px-5 py-3">
-                <Badge color={announcement.once_per_session ? "#1e40af" : "#0d7a44"}>
-                  {announcement.once_per_session ? "Una vez por sesión" : "Cada visita"}
-                </Badge>
-              </td>
-              <td className="px-5 py-3">
-                <Badge color={announcement.is_active ? "#16a34a" : "#9ca3af"}>
-                  {announcement.is_active ? "Activo" : "Inactivo"}
-                </Badge>
-              </td>
-              <td className="px-5 py-3">
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="!px-2.5 !py-1.5"
-                    onClick={() => toggleMutation.mutate(announcement)}
-                    title={announcement.is_active ? "Desactivar" : "Activar"}
-                  >
-                    {announcement.is_active ? (
-                      <EyeOff className="h-3.5 w-3.5" />
-                    ) : (
-                      <Eye className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="!px-2.5 !py-1.5"
-                    onClick={() => openEdit(announcement)}
-                    title="Editar"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="danger"
-                    className="!px-2.5 !py-1.5"
-                    onClick={async () => {
-                      if (await confirm(`¿Eliminar el anuncio "${announcement.title}"?`)) {
-                        deleteMutation.mutate(announcement.id);
-                      }
-                    }}
-                    title="Eliminar"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+
+                <div className="flex flex-1 flex-col p-5">
+                  <h3 className="font-display text-lg font-semibold leading-snug text-netland-dark">
+                    {announcement.title}
+                  </h3>
+                  <p className="mt-1.5 line-clamp-2 text-sm text-netland-muted">
+                    {announcement.description || "Sin descripción."}
+                  </p>
+
+                  <dl className="mt-4 space-y-2.5 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="flex items-center gap-1.5 text-netland-muted">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        Vigencia
+                      </dt>
+                      <dd className="font-medium text-netland-dark">{dateRange(announcement)}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="flex items-center gap-1.5 text-netland-muted">
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Frecuencia
+                      </dt>
+                      <dd>
+                        <Badge color={announcement.once_per_session ? "#1e40af" : "#0d7a44"}>
+                          {announcement.once_per_session ? "Una vez por sesión" : "Cada visita"}
+                        </Badge>
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-5 flex items-center justify-between gap-3 border-t border-netland-light pt-4">
+                    <Toggle
+                      checked={announcement.is_active}
+                      label={announcement.is_active ? "Desactivar" : "Activar"}
+                      onChange={() => toggleMutation.mutate(announcement)}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="!px-2.5 !py-1.5"
+                        onClick={() => openEdit(announcement)}
+                        title="Editar"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="danger"
+                        className="!px-2.5 !py-1.5"
+                        onClick={async () => {
+                          if (await confirm(`¿Eliminar el anuncio "${announcement.title}"?`)) {
+                            deleteMutation.mutate(announcement.id);
+                          }
+                        }}
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </td>
-            </tr>
-          ))}
-        </Table>
+              </article>
+            );
+          })}
+        </div>
       )}
 
       <Modal

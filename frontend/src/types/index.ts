@@ -238,6 +238,120 @@ export interface DashboardStats {
   overdue_debt: number;
 }
 
+export interface DashboardSummary {
+  sales: {
+    total: number;
+    current: number;
+    previous: number;
+    year: number;
+    growth_pct: number | null;
+  };
+  revenue: {
+    sold_total: number;
+    sold_current: number;
+    collected_total: number;
+    collected_current: number;
+    pending_total: number;
+    overdue_debt: number;
+    payments_month: number;
+  };
+  clients: {
+    total: number;
+    new_current: number;
+    leads_new_current: number;
+    quotes_current: number;
+  };
+  lots: {
+    total: number;
+    available: number;
+    reserved: number;
+    sold: number;
+    not_available: number;
+  };
+  quotes: {
+    total: number;
+    current: number;
+    pending: number;
+    accepted: number;
+    rejected: number;
+    conversion_to_sale: number | null;
+  };
+  upcoming: DashboardUpcomingPayment[];
+}
+
+export interface DashboardUpcomingPayment {
+  installment_id: number;
+  contract_number: string;
+  owner_name: string;
+  project_name: string;
+  lot_code: string;
+  due_date: string;
+  scheduled_amount: number;
+  balance: number;
+  status: string;
+}
+
+export interface DashboardTrendPoint {
+  label: string;
+  period: string;
+  sales_count: number;
+  sold_amount: number;
+  collected_amount: number;
+  due_amount: number;
+}
+
+export interface DashboardProjectPerformance {
+  project_id: number;
+  name: string;
+  lots_total: number;
+  available: number;
+  reserved: number;
+  sold: number;
+  not_available: number;
+  occupancy_pct: number;
+  sold_amount: number;
+  contracts_count: number;
+}
+
+export interface DashboardAdvisorRow {
+  position: number;
+  advisor_id: number;
+  advisor_name: string;
+  quotes_count: number;
+  clients_count: number;
+  sales_count: number;
+  sold_amount: number;
+  conversion_pct: number | null;
+}
+
+export interface DashboardFunnel {
+  stages: { stage: string; count: number }[];
+  conversions: { from: string; to: string; rate: number | null }[];
+}
+
+export interface DashboardSourceDatum {
+  source: string;
+  count: number;
+  pct: number | null;
+}
+
+export interface DashboardClientsTrendPoint {
+  label: string;
+  period: string;
+  clients: number;
+  leads: number;
+}
+
+export interface DashboardActivityItem {
+  id: number;
+  action: string;
+  entity: string;
+  entity_id: number | null;
+  details: string | null;
+  created_at: string | null;
+  user_name: string | null;
+}
+
 export interface QuoteInput {
   lead_id?: number | null;
   project_id: number;

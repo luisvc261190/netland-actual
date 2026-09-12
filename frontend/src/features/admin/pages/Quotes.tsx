@@ -35,8 +35,10 @@ import {
   Table,
   Button,
   Badge,
+  Pagination,
 } from "../ui";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { CoreSpinLoader } from "../../../components/ui/CoreSpinLoader";
 import { Modal } from "../../../components/ui/Modal";
 import { useToast } from "../../../components/ui/Toast";
 
@@ -83,14 +85,26 @@ export default function AdminQuotes() {
   const [editingQuote, setEditingQuote] =
     useState<Quote | null>(null);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const queryClient = useQueryClient();
   const { toast, confirm } = useToast();
 
-  const { data: quotes } = useQuery({
+  const { data: quotes, isLoading } = useQuery({
     queryKey: ["quotes-admin"],
     queryFn: () =>
       api.get<Quote[]>("/quotes", true),
   });
+
+  const totalQuotes = quotes?.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalQuotes / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedQuotes = (quotes ?? []).slice(
+    startIndex,
+    startIndex + pageSize
+  );
 
   // ==============================================================
   // ELIMINAR COTIZACIÓN (físicamente)
@@ -190,7 +204,13 @@ export default function AdminQuotes() {
         }
       />
 
-      {!quotes || quotes.length === 0 ? (
+      {isLoading ? (
+        <Card>
+          <div className="py-8">
+            <CoreSpinLoader />
+          </div>
+        </Card>
+      ) : !quotes || quotes.length === 0 ? (
         <Card>
           <EmptyState
             title="Sin cotizaciones"
@@ -224,7 +244,7 @@ export default function AdminQuotes() {
               "Acciones",
             ]}
           >
-            {quotes.map((quote) => (
+            {paginatedQuotes.map((quote) => (
               <tr
                 key={quote.id}
                 className="hover:bg-netland-light/30"
@@ -397,6 +417,15 @@ export default function AdminQuotes() {
               </tr>
             ))}
           </Table>
+
+          <Pagination
+            page={currentPage}
+            pageSize={pageSize}
+            total={totalQuotes}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            unitLabel="cotizaciones"
+          />
         </Card>
       )}
 
