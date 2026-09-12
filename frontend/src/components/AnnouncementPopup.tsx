@@ -83,7 +83,7 @@ function AnnouncementMedia({
           onResolution(el.naturalWidth, el.naturalHeight);
         }
       }}
-      className={`${className} object-cover`}
+      className={`${className} object-contain`}
     />
   );
 }
@@ -137,12 +137,12 @@ function KindBadge({ kind }: { kind: Announcement["kind"] }) {
     <div className="absolute left-3 top-3 z-10 sm:left-4 sm:top-4">
       <div className="relative">
         <span
-          className="absolute -inset-1.5 animate-ping rounded-xl bg-red-500/40 sm:hidden"
+          className="absolute -inset-1.5 animate-ping rounded-xl bg-red-500/40 sm:rotate-[-6deg]"
           aria-hidden="true"
         />
-        <span className="relative inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-2.5 py-1.5 text-white shadow-lg sm:gap-1 sm:rounded-full sm:bg-red-600/90 sm:px-2.5 sm:py-1 sm:shadow-md sm:backdrop-blur-md">
-          <style.icon className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-          <span className="text-xs font-black uppercase tracking-[0.08em] sm:text-[10px] sm:font-bold sm:tracking-[0.1em]">
+        <span className="relative inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-2.5 py-1.5 text-white shadow-lg sm:gap-2 sm:rounded-xl sm:bg-red-600/90 sm:px-4 sm:py-2 sm:shadow-md sm:backdrop-blur-sm sm:rotate-[-6deg]">
+          <style.icon className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+          <span className="text-xs font-black uppercase tracking-[0.08em] sm:text-sm sm:font-black sm:tracking-[0.1em]">
             {style.label}
           </span>
         </span>
@@ -220,7 +220,7 @@ export function AnnouncementPopup() {
   const panelWidth = !resolution
     ? "max-w-md"
     : isPortrait
-      ? "max-w-xs sm:max-w-sm"
+      ? "max-w-sm sm:max-w-md"
       : "max-w-2xl";
 
   const close = (): void => {
@@ -245,12 +245,12 @@ export function AnnouncementPopup() {
         className={`relative w-full ${panelWidth} max-h-[86vh] overflow-hidden rounded-3xl bg-netland-dark shadow-2xl transition-all duration-300 sm:rounded-2xl sm:shadow-xl sm:ring-1 sm:ring-white/20 animate-popIn`}
       >
         <div
-          className={`relative flex min-h-[22rem] w-full overflow-hidden sm:min-h-[26rem] ${
+          className={`relative flex w-full overflow-hidden ${
             resolution ? "" : "aspect-[3/4] sm:aspect-video"
           }`}
           style={
             resolution
-              ? { aspectRatio: `${resolution.width} / ${resolution.height}` }
+              ? { aspectRatio: `${resolution.width} / ${resolution.height}`, maxHeight: "86vh" }
               : undefined
           }
         >
@@ -280,49 +280,34 @@ export function AnnouncementPopup() {
           </button>
 
           {hasContent ? (
-            <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 sm:inset-x-4 sm:bottom-4">
-              <div className="pointer-events-auto max-h-[45vh] overflow-y-auto rounded-xl bg-black/35 p-3 ring-1 ring-white/10 backdrop-blur-md sm:p-4">
-                {active.title && (
-                  <h3 className="font-display text-base font-bold leading-snug text-white sm:text-lg">
-                    {active.title}
-                  </h3>
-                )}
-
-                {active.description && (
-                  <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-white/85 sm:text-[13px]">
-                    {active.description}
-                  </p>
-                )}
-
-                {(active.button_phone || multiple) && (
-                  <div className="mt-2.5 flex items-center justify-between gap-3">
-                    {multiple && (
-                      <CarouselControls
-                        count={pending.length}
-                        index={index}
-                        onChange={setIndex}
-                      />
-                    )}
-                    {active.button_phone && (
-                      <a
-                        href={whatsappLink(
-                          `Hola, estoy interesado en "${active.title}" de Netland.`,
-                          active.button_phone
-                        )}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={close}
-                        className="btn-accent ml-auto flex w-auto items-center whitespace-nowrap !px-3.5 !py-2 text-sm leading-none"
-                      >
-                        Solicito información
-                      </a>
-                    )}
-                  </div>
-                )}
+            (active.button_phone || multiple) && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex px-4">
+                <div className="pointer-events-auto">
+                  {active.button_phone ? (
+                    <a
+                      href={whatsappLink(
+                        `Hola, estoy interesado en "${active.title}" de Netland.`,
+                        active.button_phone
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={close}
+                      className="btn-accent flex w-auto items-center justify-center !px-3.5 !py-1.5 text-xs sm:!px-5 sm:!py-2.5 sm:text-sm"
+                    >
+                      Solicito información
+                    </a>
+                  ) : (
+                    <CarouselControls
+                      count={pending.length}
+                      index={index}
+                      onChange={setIndex}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
+            )
           ) : multiple ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center bg-gradient-to-t from-black/60 to-transparent px-3 pb-4 pt-12">
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex px-4">
               <div className="pointer-events-auto">
                 <CarouselControls
                   count={pending.length}
