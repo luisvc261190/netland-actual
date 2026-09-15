@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useLeadForm } from "../features/leads/useLeadForm";
+import { usePageMeta } from "../lib/seo";
 import { validateName, validatePhone, validateEmail, validateField } from "../lib/validations";
 
 const benefits = [
@@ -129,6 +130,13 @@ const testimonials = [
 export default function ReferAndEarn() {
   const { submit, submitting, submitted, error } = useLeadForm();
   const [step, setStep] = useState(1);
+
+  usePageMeta({
+    title: "Refiere y Gana | NETLAND Corporación Inmobiliaria",
+    description:
+      "Refiere a tus amigos y familiares para que conozcan los proyectos de Netland en Cañete y recibe recompensas por cada recomendación exitosa.",
+    path: "/refiere-y-gana",
+  });
   const [form, setForm] = useState({
     referrerName: "",
     referrerPhone: "",

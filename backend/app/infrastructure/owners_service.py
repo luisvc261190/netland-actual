@@ -2,7 +2,7 @@
 Servicios de lógica de negocio para Propietarios y Cobranzas
 """
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Optional, Tuple
 from dateutil.relativedelta import relativedelta
 
@@ -330,7 +330,8 @@ class FinancingService:
         FinancingService.generate_installment_schedule(
             db, financing.id, financing.first_installment_date,
             financing.number_of_installments, financing.installment_amount,
-            financing.frequency
+            financing.frequency,
+            financed_amount=financing.financed_amount
         )
 
         db.commit()
@@ -344,19 +345,37 @@ class FinancingService:
         start_date: date,
         num_installments: int,
         installment_amount: Decimal,
-        frequency: str = "mensual"
+        frequency: str = "mensual",
+        financed_amount: Optional[Decimal] = None
     ):
-        """Generar cronograma de cuotas"""
+        """
+        Generar cronograma de cuotas.
+
+        Si se indica financed_amount, la última cuota absorbe la diferencia de
+        redondeo para que sum(scheduled_amount) == financed_amount (así el
+        cronograma cuadra exactamente con el monto financiado).
+        """
         current_date = start_date
-        
+        base = Decimal(str(installment_amount))
+        last_amount = base
+
+        if financed_amount is not None and num_installments > 1:
+            financed = Decimal(str(financed_amount))
+            last_amount = (financed - base * (num_installments - 1)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            if last_amount < Decimal("0.01"):
+                last_amount = base
+
         for i in range(1, num_installments + 1):
+            scheduled = last_amount if i == num_installments else base
             installment = Installment(
                 financing_plan_id=financing_plan_id,
                 installment_number=i,
                 due_date=current_date,
-                scheduled_amount=installment_amount,
+                scheduled_amount=scheduled,
                 paid_amount=Decimal("0.00"),
-                balance=installment_amount,
+                balance=scheduled,
                 status="pendiente",
                 days_overdue=0
             )
@@ -699,7 +718,7 @@ class CollectionsService:
         db: Session,
         filters: dict = None,
         skip: int = 0,
-        limit: int = 100
+        limit: Optional[int] = 100
     ) -> List[dict]:
         """Obtener listado de items para cobranza."""
         query = db.query(Contract).options(
@@ -732,7 +751,10 @@ class CollectionsService:
         if status_filter:
             items = [item for item in items if item["collection_status"] == status_filter]
 
-        return items[skip : skip + limit]
+        # La paginación se aplica DESPUÉS de calcular/filtrar para no perder
+        # registros vencidos más allá de los primeros `limit` contratos.
+        end = None if limit is None else skip + limit
+        return items[skip:end]
 
     @staticmethod
     def _compute_collection_item(db: Session, contract: Contract, today: date) -> dict:
@@ -1091,7 +1113,8 @@ class SalesService:
             db.add(plan)
             db.flush()
             FinancingService.generate_installment_schedule(
-                db, plan.id, first_date, num_installments, installment_amount, "mensual"
+                db, plan.id, first_date, num_installments, installment_amount, "mensual",
+                financed_amount=financed_amount,
             )
             db.commit()
             db.refresh(contract)

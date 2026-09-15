@@ -372,6 +372,8 @@ def generate_quote_pdf(
     company_razon_social: str | None = None,
     company_address: str | None = None,
     company_accounts: list[str] | None = None,
+    bank_name: str | None = None,
+    bank_account_number: str | None = None,
     price_per_m2: float | None = None,
     esquina_surcharge: float = 0,
     frente_parque_surcharge: float = 0,
@@ -1097,6 +1099,82 @@ def generate_quote_pdf(
     y -= payment_height + 7 * mm
 
     # =========================================================================
+    # DATOS BANCARIOS DEL PROYECTO (CUENTA PARA DEPÓSITOS)
+    # =========================================================================
+
+    if bank_name or bank_account_number:
+
+        bank_height = 15 * mm
+        bank_card_y = y
+
+        c.setFillColor(WHITE)
+        c.setStrokeColor(BORDER)
+        c.setLineWidth(0.5)
+
+        c.roundRect(
+            margin_left,
+            bank_card_y - bank_height,
+            content_width,
+            bank_height,
+            2 * mm,
+            stroke=1,
+            fill=1,
+        )
+
+        # Barra lateral verde institucional
+        c.setFillColor(colors.HexColor("#16a34a"))
+
+        c.roundRect(
+            margin_left,
+            bank_card_y - bank_height,
+            1.3 * mm,
+            bank_height,
+            0.7 * mm,
+            stroke=0,
+            fill=1,
+        )
+
+        # Banco
+        c.setFillColor(GREY)
+        c.setFont("Helvetica-Bold", 7)
+
+        c.drawString(
+            margin_left + 5 * mm,
+            bank_card_y - 6 * mm,
+            "BANCO",
+        )
+
+        c.setFillColor(DARK)
+        c.setFont("Helvetica-Bold", 9)
+
+        c.drawString(
+            margin_left + 32 * mm,
+            bank_card_y - 6 * mm,
+            bank_name or "—",
+        )
+
+        # Número de cuenta
+        c.setFillColor(GREY)
+        c.setFont("Helvetica-Bold", 7)
+
+        c.drawString(
+            margin_left + 5 * mm,
+            bank_card_y - 11.5 * mm,
+            "N° DE CUENTA",
+        )
+
+        c.setFillColor(MUSTARD)
+        c.setFont("Helvetica-Bold", 9.5)
+
+        c.drawString(
+            margin_left + 32 * mm,
+            bank_card_y - 11.5 * mm,
+            bank_account_number or "—",
+        )
+
+        y -= bank_height + 6 * mm
+
+    # =========================================================================
     # RESUMEN ECONÓMICO
     # =========================================================================
 
@@ -1518,6 +1596,8 @@ def generate_contract_pdf(
     owner_civil_status: str | None = None,
     payment_plan: dict | None = None,
     initial_vouchers: list | None = None,
+    bank_name: str | None = None,
+    bank_account_number: str | None = None,
 ) -> bytes:
     """
     Genera un CONTRATO DE COMPRAVENTA DE BIEN FUTURO legalmente válido para el Perú.
@@ -1718,8 +1798,8 @@ def generate_contract_pdf(
             ["Concepto", "Detalle"],
             ["Beneficiario", company_name],
             ["RUC", company_ruc or "XXXXXXXXXXX"],
-            ["Banco", "____________________"],
-            ["N° de Cuenta", "____________________"],
+            ["Banco", bank_name or "____________________"],
+            ["N° de Cuenta", bank_account_number or "____________________"],
             ["Monto", format_soles(total_price)],
             ["Fecha de operación", "____________________"],
             ["N° de operación", "____________________"],
@@ -1762,6 +1842,31 @@ def generate_contract_pdf(
                 style_body
             ))
             story.append(Spacer(1, 2 * mm))
+
+            # Cuenta del proyecto para depósitos (venta financiada)
+            if bank_name or bank_account_number:
+                bank_data = [
+                    ["Concepto", "Detalle"],
+                    ["Beneficiario", company_name],
+                    ["Banco", bank_name or "____________________"],
+                    ["N° de Cuenta", bank_account_number or "____________________"],
+                ]
+
+                bank_table = Table(bank_data, colWidths=[45*mm, 85*mm])
+                bank_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), BLUE_LIGHT),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), NAVY),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 8),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#DCE3E7")),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ]))
+                story.append(bank_table)
+                story.append(Spacer(1, 3 * mm))
             
             # Mostrar vouchers si existen, sino mostrar tabla vacía
             if initial_vouchers and len(initial_vouchers) > 0:
@@ -2114,389 +2219,6 @@ def generate_contract_pdf(
     # Construir PDF
     doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
     
-    return buffer.getvalue()
-    
-    # Colores corporativos
-    NAVY = colors.HexColor("#17324D")
-    BLUE_LIGHT = colors.HexColor("#EAF2F7")
-    DARK = colors.HexColor("#263238")
-    TEXT = colors.HexColor("#37474F")
-    GREY = colors.HexColor("#6B7780")
-    MUSTARD = colors.HexColor("#B58A3A")
-    BORDER = colors.HexColor("#DCE3E7")
-    
-    margin = 15 * mm
-    right_margin = width - 15 * mm
-    content_width = right_margin - margin
-    
-    # =========================================================================
-    # ENCABEZADO DEL CONTRATO
-    # =========================================================================
-    
-    y = height - 20 * mm
-    
-    # Título principal
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(width / 2, y, "CONTRATO DE COMPRAVENTA DE TERRENO")
-    
-    y -= 8 * mm
-    c.setFont("Helvetica-Bold", 11)
-    c.drawCentredString(width / 2, y, f"N° {contract_number}")
-    
-    y -= 10 * mm
-    
-    # Línea separadora
-    c.setStrokeColor(MUSTARD)
-    c.setLineWidth(1.5)
-    c.line(margin, y, right_margin, y)
-    
-    y -= 12 * mm
-    
-    # =========================================================================
-    # PARTES CONTRATANTES
-    # =========================================================================
-    
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(margin, y, "CONSTE POR EL PRESENTE DOCUMENTO:")
-    
-    y -= 8 * mm
-    
-    c.setFillColor(TEXT)
-    c.setFont("Helvetica", 9)
-    
-    # Texto justificado - Primera parte (VENDEDOR)
-    text_lines = [
-        f"El contrato de compraventa de terreno que celebran de una parte {company_name.upper()}, con RUC N° {company_ruc or 'XXXXXXXXXX'}, ",
-        f"con domicilio en {company_address or 'Lima, Perú'}, a quien en adelante se denominará EL VENDEDOR; ",
-        f"y de la otra parte {owner_name.upper()}, identificado(a) con {owner_document}, ",
-    ]
-    
-    if owner_civil_status:
-        text_lines.append(f"de estado civil {owner_civil_status.lower()}, ")
-    
-    if owner_address:
-        text_lines.append(f"con domicilio en {owner_address}, ")
-    
-    text_lines.append("a quien en adelante se denominará EL COMPRADOR; en los términos y condiciones siguientes:")
-    
-    for line in text_lines:
-        if y < 40 * mm:  # Nueva página si es necesario
-            c.showPage()
-            y = height - 20 * mm
-        c.drawString(margin, y, line)
-        y -= 4.5 * mm
-    
-    y -= 5 * mm
-    
-    # =========================================================================
-    # CLÁUSULA PRIMERA: OBJETO DEL CONTRATO
-    # =========================================================================
-    
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9.5)
-    c.drawString(margin, y, "PRIMERA: OBJETO DEL CONTRATO")
-    
-    y -= 6 * mm
-    
-    c.setFillColor(TEXT)
-    c.setFont("Helvetica", 9)
-    
-    lote_completo = f"Manzana {block_code}, Lote {lot_code}" if block_code else f"Lote {lot_code}"
-    
-    clausula_1 = [
-        f"EL VENDEDOR transfiere en venta real y enajenación perpetua a favor de EL COMPRADOR, un terreno ",
-        f"identificado como {lote_completo}, ubicado en el proyecto inmobiliario {project_name}, ",
-        f"con un área de {lot_area_m2:.2f} metros cuadrados ({lot_area_m2:.2f} m²), cuyos linderos y medidas perimétricas ",
-        "constan en el plano de lotización debidamente aprobado por las autoridades competentes.",
-    ]
-    
-    for line in clausula_1:
-        if y < 40 * mm:
-            c.showPage()
-            y = height - 20 * mm
-        c.drawString(margin, y, line)
-        y -= 4.5 * mm
-    
-    y -= 5 * mm
-    
-    # =========================================================================
-    # CLÁUSULA SEGUNDA: PRECIO Y FORMA DE PAGO
-    # =========================================================================
-    
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9.5)
-    c.drawString(margin, y, "SEGUNDA: PRECIO Y FORMA DE PAGO")
-    
-    y -= 6 * mm
-    
-    c.setFillColor(TEXT)
-    c.setFont("Helvetica", 9)
-    
-    precio_letras = _number_to_words(total_price)
-    
-    clausula_2 = [
-        f"El precio total pactado por la compraventa del inmueble descrito es de {format_soles(total_price)} ",
-        f"({precio_letras.upper()}), equivalente a un precio de {format_soles(price_per_m2)} por metro cuadrado.",
-    ]
-    
-    # Agregar forma de pago
-    if payment_modality == "contado":
-        clausula_2.append("El pago se realizará al contado en una sola armada al momento de la firma del contrato.")
-    else:
-        if payment_plan:
-            inicial = float(payment_plan.get("initial_payment", 0))
-            saldo = float(payment_plan.get("financed_amount", 0))
-            cuotas = int(payment_plan.get("installments", 0))
-            cuota_mensual = float(payment_plan.get("installment_value", 0))
-            
-            clausula_2.extend([
-                f"El pago se realizará de la siguiente manera: (i) Cuota inicial de {format_soles(inicial)} a la firma del contrato; ",
-                f"(ii) Saldo de {format_soles(saldo)} en {cuotas} cuotas mensuales de {format_soles(cuota_mensual)} cada una, ",
-                "con vencimiento los días 05 de cada mes, sin intereses moratorios durante el plazo pactado."
-            ])
-        else:
-            clausula_2.append("El saldo del precio se financiará según cronograma de pagos adjunto al presente contrato.")
-    
-    for line in clausula_2:
-        if y < 40 * mm:
-            c.showPage()
-            y = height - 20 * mm
-        c.drawString(margin, y, line)
-        y -= 4.5 * mm
-    
-    y -= 5 * mm
-    
-    # =========================================================================
-    # CLÁUSULA TERCERA: OBLIGACIONES DEL VENDEDOR
-    # =========================================================================
-    
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9.5)
-    c.drawString(margin, y, "TERCERA: OBLIGACIONES DEL VENDEDOR")
-    
-    y -= 6 * mm
-    
-    c.setFillColor(TEXT)
-    c.setFont("Helvetica", 9)
-    
-    c.drawString(margin, y, "EL VENDEDOR se obliga a:")
-    y -= 5 * mm
-    
-    obligaciones_vendedor = [
-        "a) Entregar el terreno libre de gravámenes, cargas o limitaciones de dominio.",
-        "b) Otorgar la escritura pública de compraventa ante Notario Público una vez cancelado el precio total.",
-        "c) Garantizar el saneamiento legal del inmueble y responder por la evicción que pudiera producirse.",
-        "d) Entregar copia del plano de lotización y memorias descriptivas del proyecto.",
-    ]
-    
-    for obligacion in obligaciones_vendedor:
-        if y < 40 * mm:
-            c.showPage()
-            y = height - 20 * mm
-        c.drawString(margin + 5 * mm, y, obligacion)
-        y -= 4.5 * mm
-    
-    y -= 5 * mm
-    
-    # =========================================================================
-    # CLÁUSULA CUARTA: OBLIGACIONES DEL COMPRADOR
-    # =========================================================================
-    
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9.5)
-    c.drawString(margin, y, "CUARTA: OBLIGACIONES DEL COMPRADOR")
-    
-    y -= 6 * mm
-    
-    c.setFillColor(TEXT)
-    c.setFont("Helvetica", 9)
-    
-    c.drawString(margin, y, "EL COMPRADOR se obliga a:")
-    y -= 5 * mm
-    
-    obligaciones_comprador = [
-        "a) Pagar el precio pactado en la forma y plazos establecidos en la cláusula segunda.",
-        "b) Asumir los gastos notariales y registrales para la formalización de la compraventa.",
-        "c) Respetar las normas urbanísticas y restricciones del proyecto inmobiliario.",
-        "d) Cumplir con las obligaciones tributarias correspondientes al inmueble adquirido.",
-    ]
-    
-    for obligacion in obligaciones_comprador:
-        if y < 40 * mm:
-            c.showPage()
-            y = height - 20 * mm
-        c.drawString(margin + 5 * mm, y, obligacion)
-        y -= 4.5 * mm
-    
-    y -= 5 * mm
-    
-    # =========================================================================
-    # CLÁUSULA QUINTA: RESOLUCIÓN DEL CONTRATO
-    # =========================================================================
-    
-    if y < 60 * mm:
-        c.showPage()
-        y = height - 20 * mm
-    
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9.5)
-    c.drawString(margin, y, "QUINTA: RESOLUCIÓN DEL CONTRATO")
-    
-    y -= 6 * mm
-    
-    c.setFillColor(TEXT)
-    c.setFont("Helvetica", 9)
-    
-    clausula_5 = [
-        "El presente contrato se resolverá de pleno derecho si EL COMPRADOR incurre en mora en el pago de dos (2) cuotas ",
-        "consecutivas o tres (3) alternadas, quedando EL VENDEDOR facultado para retener el 30% de las cuotas pagadas como ",
-        "penalidad, devolviendo el saldo restante. Asimismo, el contrato podrá resolverse por incumplimiento de las obligaciones ",
-        "esenciales de cualquiera de las partes, previo requerimiento notarial con plazo de 15 días calendarios para subsanar."
-    ]
-    
-    for line in clausula_5:
-        if y < 40 * mm:
-            c.showPage()
-            y = height - 20 * mm
-        c.drawString(margin, y, line)
-        y -= 4.5 * mm
-    
-    y -= 5 * mm
-    
-    # =========================================================================
-    # CLÁUSULA SEXTA: JURISDICCIÓN Y COMPETENCIA
-    # =========================================================================
-    
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9.5)
-    c.drawString(margin, y, "SEXTA: JURISDICCIÓN Y COMPETENCIA")
-    
-    y -= 6 * mm
-    
-    c.setFillColor(TEXT)
-    c.setFont("Helvetica", 9)
-    
-    clausula_6 = [
-        "Para efectos de cualquier controversia derivada del presente contrato, las partes se someten expresamente a la ",
-        "jurisdicción de los Jueces y Tribunales del Distrito Judicial de Lima, renunciando al fuero de sus domicilios."
-    ]
-    
-    for line in clausula_6:
-        if y < 40 * mm:
-            c.showPage()
-            y = height - 20 * mm
-        c.drawString(margin, y, line)
-        y -= 4.5 * mm
-    
-    y -= 8 * mm
-    
-    # =========================================================================
-    # DATOS DEL INMUEBLE (Cuadro resumen)
-    # =========================================================================
-    
-    if y < 80 * mm:
-        c.showPage()
-        y = height - 20 * mm
-    
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9.5)
-    c.drawString(margin, y, "DATOS DEL INMUEBLE Y MONTO DE LA OPERACIÓN")
-    
-    y -= 7 * mm
-    
-    # Cuadro resumen
-    box_height = 35 * mm
-    c.setFillColor(BLUE_LIGHT)
-    c.roundRect(margin, y - box_height, content_width, box_height, 2 * mm, stroke=0, fill=1)
-    
-    c.setStrokeColor(BORDER)
-    c.setLineWidth(0.5)
-    c.roundRect(margin, y - box_height, content_width, box_height, 2 * mm, stroke=1, fill=0)
-    
-    # Contenido del cuadro
-    row_y = y - 8 * mm
-    line_height = 6 * mm
-    
-    datos = [
-        ("Proyecto:", project_name),
-        ("Identificación del lote:", lote_completo),
-        ("Área del terreno:", f"{lot_area_m2:.2f} m²"),
-        ("Precio por m²:", format_soles(price_per_m2)),
-        ("Precio total:", format_soles(total_price)),
-    ]
-    
-    c.setFillColor(GREY)
-    c.setFont("Helvetica-Bold", 8)
-    for label, value in datos:
-        c.drawString(margin + 4 * mm, row_y, label)
-        c.setFillColor(DARK)
-        c.setFont("Helvetica-Bold", 9)
-        c.drawString(margin + 55 * mm, row_y, value)
-        c.setFillColor(GREY)
-        c.setFont("Helvetica-Bold", 8)
-        row_y -= line_height
-    
-    y -= box_height + 10 * mm
-    
-    # =========================================================================
-    # FIRMAS
-    # =========================================================================
-    
-    if y < 60 * mm:
-        c.showPage()
-        y = height - 20 * mm
-    
-    c.setFillColor(TEXT)
-    c.setFont("Helvetica", 8.5)
-    fecha_formato = datetime.strptime(contract_date, "%Y-%m-%d").strftime("%d de %B de %Y") if "-" in contract_date else contract_date
-    c.drawCentredString(width / 2, y, f"Lima, {fecha_formato}")
-    
-    y -= 20 * mm
-    
-    # Líneas de firma
-    firma_width = 70 * mm
-    firma_left_x = margin + 10 * mm
-    firma_right_x = width - margin - firma_width - 10 * mm
-    
-    c.setStrokeColor(NAVY)
-    c.setLineWidth(0.8)
-    c.line(firma_left_x, y, firma_left_x + firma_width, y)
-    c.line(firma_right_x, y, firma_right_x + firma_width, y)
-    
-    y -= 5 * mm
-    
-    c.setFillColor(NAVY)
-    c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(firma_left_x + firma_width / 2, y, "EL COMPRADOR")
-    c.drawCentredString(firma_right_x + firma_width / 2, y, "EL VENDEDOR")
-    
-    y -= 4 * mm
-    
-    c.setFillColor(TEXT)
-    c.setFont("Helvetica", 8)
-    c.drawCentredString(firma_left_x + firma_width / 2, y, owner_name[:60])
-    c.drawCentredString(firma_right_x + firma_width / 2, y, company_name[:60])
-    
-    y -= 3.5 * mm
-    
-    c.setFillColor(GREY)
-    c.setFont("Helvetica", 7.5)
-    c.drawCentredString(firma_left_x + firma_width / 2, y, owner_document)
-    c.drawCentredString(firma_right_x + firma_width / 2, y, f"RUC {company_ruc or ''}")
-    
-    # =========================================================================
-    # PIE DE PÁGINA
-    # =========================================================================
-    
-    footer_y = 15 * mm
-    c.setFillColor(GREY)
-    c.setFont("Helvetica", 7)
-    c.drawCentredString(width / 2, footer_y, f"Contrato N° {contract_number} • {company_name}")
-    c.drawCentredString(width / 2, footer_y - 3.5 * mm, "Este documento tiene validez legal para ser elevado ante Notario Público")
-    
-    c.save()
     return buffer.getvalue()
 
 
@@ -3203,6 +2925,14 @@ def generate_payment_schedule_pdf(
     total_paid = sum(float(i.get("paid_amount", 0)) for i in installments)
     total_balance = sum(float(i.get("balance", 0)) for i in installments)
     rounding_diff = financed_amount - total_scheduled
+    # Montos visibles en la columna PROGRAMADO: la última cuota absorbe la
+    # diferencia de redondeo para que el cronograma cuadre con el monto financiado.
+    display_amounts = [
+        float(inst.get("scheduled_amount", 0))
+        + (rounding_diff if ix == len(installments) - 1 else 0.0)
+        for ix, inst in enumerate(installments)
+    ]
+    total_scheduled_display = sum(display_amounts)
     running = 0.0
     saldo_after = []
     for ix, inst in enumerate(installments):
@@ -3245,7 +2975,12 @@ def generate_payment_schedule_pdf(
         x_cursor += col_widths[1]
 
         c.setFillColor(text)
-        c.drawRightString(x_cursor + col_widths[2] - 2 * mm, text_y, format_soles(float(inst.get("scheduled_amount", 0))))
+        display_val = (
+            display_amounts[idx]
+            if idx < len(display_amounts)
+            else float(inst.get("scheduled_amount", 0))
+        )
+        c.drawRightString(x_cursor + col_widths[2] - 2 * mm, text_y, format_soles(display_val))
         x_cursor += col_widths[2]
 
         c.drawRightString(x_cursor + col_widths[3] - 2 * mm, text_y, format_soles(float(inst.get("paid_amount", 0))))
@@ -3279,7 +3014,7 @@ def generate_payment_schedule_pdf(
         c.drawString(margin_left + 2 * mm, y - 4.8 * mm, "TOTALES")
 
         x_cursor = margin_left + col_widths[0] + col_widths[1]
-        c.drawRightString(x_cursor + col_widths[2] - 2 * mm, y - 4.8 * mm, format_soles(total_scheduled))
+        c.drawRightString(x_cursor + col_widths[2] - 2 * mm, y - 4.8 * mm, format_soles(total_scheduled_display))
         x_cursor += col_widths[2]
         c.setFillColor(colors.HexColor("#16a34a"))
         c.drawRightString(x_cursor + col_widths[3] - 2 * mm, y - 4.8 * mm, format_soles(total_paid))

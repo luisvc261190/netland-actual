@@ -62,7 +62,9 @@ def get_overdue_contracts(
     current_user: User = Depends(get_current_user)
 ):
     """Obtener contratos con deuda vencida"""
-    items = CollectionsService.get_collection_items(db, skip=skip, limit=limit)
+    # Se recorren TODOS los contratos activos y luego se filtra por vencido,
+    # aplicando la paginación al final (los vencidos no se pierden en el límite).
+    items = CollectionsService.get_collection_items(db, skip=0, limit=None)
     
     # Filtrar solo vencidos
     overdue = [item for item in items if item["collection_status"] == "vencido"]
@@ -70,7 +72,7 @@ def get_overdue_contracts(
     if min_days:
         overdue = [item for item in overdue if item["days_overdue"] >= min_days]
     
-    return overdue
+    return overdue[skip : skip + limit]
 
 
 @router.get("/upcoming", response_model=List[dict])

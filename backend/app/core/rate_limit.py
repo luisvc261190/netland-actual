@@ -1,4 +1,4 @@
-"""Rate limiting en memoria para proteger endpoints sensibles (login).
+"""Rate limiting en memoria para proteger endpoints sensibles (login, leads).
 
 Implementa un limitador por IP con ventana deslizante. Es apropiado para
 despliegues de un solo proceso y evita dependencias externas.
@@ -6,6 +6,8 @@ despliegues de un solo proceso y evita dependencias externas.
 import threading
 import time
 from collections import defaultdict, deque
+
+from fastapi import Request
 
 
 class SlidingWindowRateLimiter:
@@ -32,5 +34,18 @@ class SlidingWindowRateLimiter:
             self._attempts.pop(key, None)
 
 
+def client_ip(request: Request) -> str:
+    """Devuelve la IP del cliente teniendo en cuenta proxies confiables."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "unknown"
+
+
 # Guardia de login: máximo 5 intentos por IP en 15 minutos.
 login_rate_limiter = SlidingWindowRateLimiter(max_attempts=5, window_seconds=900)
+
+# Guardia de formularios públicos (contacto / referidos): máx. 10 envíos por IP/hora.
+lead_rate_limiter = SlidingWindowRateLimiter(max_attempts=10, window_seconds=3600)

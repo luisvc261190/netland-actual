@@ -8,6 +8,7 @@ from app.core.security import decode_access_token, is_token_revoked
 from app.domain.models import Role, User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 
 def get_current_user(
@@ -32,6 +33,26 @@ def get_current_user(
     user = db.get(User, user_id)
     if not user or not user.is_active:
         raise credentials_error
+    return user
+
+
+def get_current_user_optional(
+    token: str | None = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """Igual que `get_current_user` pero devuelve None si no hay sesión válida."""
+    if not token:
+        return None
+    try:
+        payload = decode_access_token(token)
+        user_id = int(payload.get("sub", ""))
+    except (InvalidTokenError, ValueError, TypeError):
+        return None
+    if is_token_revoked(token):
+        return None
+    user = db.get(User, user_id)
+    if not user or not user.is_active:
+        return None
     return user
 
 

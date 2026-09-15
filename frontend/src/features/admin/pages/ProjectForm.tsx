@@ -9,6 +9,26 @@ import { useToast } from "../../../components/ui/Toast";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { FileUploader } from "../../../components/ui/FileUploader";
 
+const PERUVIAN_BANKS = [
+  "Banco de Crédito del Perú (BCP)",
+  "Banco de la Nación",
+  "Interbank",
+  "BBVA Perú",
+  "Scotiabank Perú",
+  "Mi Banco",
+  "Banbif",
+  "Banco Pichincha",
+  "Banco Falabella",
+  "Caja Arequipa",
+  "Caja Cusco",
+  "Caja Huancayo",
+  "Caja Ica",
+  "Caja Trujillo",
+  "Caja Piura",
+  "Caja Tacna",
+  "Banco Interamericano de Finanzas (BIF)",
+];
+
 const emptyProject = {
   slug: "",
   name: "",
@@ -26,6 +46,8 @@ const emptyProject = {
   hero_image: "",
   hero_video: "",
   logo_url: "",
+  bank_name: "",
+  bank_account_number: "",
   status: "active",
   is_published: true,
   legal_info: "",
@@ -63,6 +85,8 @@ export default function ProjectForm() {
         hero_image: project.hero_image,
         hero_video: project.hero_video,
         logo_url: project.logo_url,
+        bank_name: project.bank_name,
+        bank_account_number: project.bank_account_number,
         status: project.status,
         is_published: project.is_published,
         legal_info: project.legal_info,
@@ -152,6 +176,48 @@ export default function ProjectForm() {
             <Field label="Link del mapa (embed de Google Maps)">
               <Input value={form.map_link} onChange={(e) => set("map_link", e.target.value)} placeholder="https://www.google.com/maps/embed?pb=..." />
             </Field>
+          </Card>
+
+          <Card className="space-y-4">
+            <h3 className="font-display text-xl font-semibold text-netland-dark">Datos bancarios</h3>
+            <p className="text-xs text-netland-muted">
+              El banco y el número de cuenta se incluirán automáticamente en las
+              cotizaciones y contratos de este proyecto, para que tus clientes
+              sepan dónde depositar.
+            </p>
+            <Field label="Banco">
+              <Select
+                value={form.bank_name}
+                onChange={(e) => set("bank_name", e.target.value)}
+              >
+                <option value="">Sin banco configurado</option>
+                {PERUVIAN_BANKS.map((bank) => (
+                  <option key={bank} value={bank}>
+                    {bank}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field
+              label="Número de cuenta"
+              hint="Ej: 191-1234567-0-45 (puede incluir guiones)"
+            >
+              <Input
+                value={form.bank_account_number}
+                onChange={(e) => set("bank_account_number", e.target.value)}
+                placeholder="Número de cuenta para depósitos"
+                disabled={!form.bank_name}
+              />
+            </Field>
+            {form.bank_name && form.bank_account_number && (
+              <div className="flex items-center gap-2 rounded-lg bg-netland-light/60 px-4 py-3">
+                <div className="text-sm">
+                  <span className="font-semibold text-netland-dark">{form.bank_name}</span>
+                  <span className="text-netland-muted"> · N° cuenta: </span>
+                  <span className="font-bold text-netland-primary">{form.bank_account_number}</span>
+                </div>
+              </div>
+            )}
           </Card>
 
           <Card className="space-y-4">

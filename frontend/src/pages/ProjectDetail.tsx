@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { whatsappLink } from "../lib/constants";
+import { SITE_NAME, siteOrigin, usePageMeta } from "../lib/seo";
 import type {
   GalleryItem,
   Lot,
@@ -69,6 +70,73 @@ export default function ProjectDetail() {
     queryFn: () => api.get<ProjectDocument[]>(`/projects/${project!.id}/documents`),
     enabled: !!project,
   });
+
+  usePageMeta(
+    project
+      ? {
+          title:
+            project.seo_title || `${project.short_name} | Proyectos en Cañete`,
+          description:
+            project.seo_description ||
+            `${project.description} ${project.location}. Lotes disponibles en ${project.short_name}, cotiza online o agenda una visita guiada.`,
+          path: `/proyectos/${project.slug}`,
+          image: project.og_image || project.hero_image || undefined,
+          jsonLd: {
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "Organization",
+                "@id": `${siteOrigin()}/#organization`,
+                name: SITE_NAME,
+                url: siteOrigin(),
+                telephone: "+51 985 928 062",
+              },
+              {
+                "@type": "RealEstateAgent",
+                "@id": `${siteOrigin()}/proyectos/${project.slug}#project`,
+                name: project.short_name,
+                description: project.seo_description || project.description,
+                image: project.hero_image || undefined,
+                url: `${siteOrigin()}/proyectos/${project.slug}`,
+                ...(project.latitude != null && project.longitude != null
+                  ? {
+                      geo: {
+                        "@type": "GeoCoordinates",
+                        latitude: project.latitude,
+                        longitude: project.longitude,
+                      },
+                    }
+                  : {}),
+                parentOrganization: { "@id": `${siteOrigin()}/#organization` },
+              },
+              {
+                "@type": "BreadcrumbList",
+                itemListElement: [
+                  {
+                    "@type": "ListItem",
+                    position: 1,
+                    name: "Inicio",
+                    item: siteOrigin(),
+                  },
+                  {
+                    "@type": "ListItem",
+                    position: 2,
+                    name: "Proyectos",
+                    item: `${siteOrigin()}/proyectos`,
+                  },
+                  {
+                    "@type": "ListItem",
+                    position: 3,
+                    name: project.short_name,
+                    item: `${siteOrigin()}/proyectos/${project.slug}`,
+                  },
+                ],
+              },
+            ],
+          },
+        }
+      : {}
+  );
 
   if (isLoading || !project) {
     return (

@@ -3,6 +3,7 @@ API Routes para Contratos
 """
 import tempfile
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import List, Optional
 
@@ -326,7 +327,27 @@ def delete_contract(
         "cancellation_reason": f"Contrato anulado: {cancellation_reason}",
         "cancelled_by": current_user.id
     })
-    
+
+    # Revertir el cronograma de cuotas para evitar estados huérfanos
+    # (cuotas "pagada"/"pendiente" sobre un contrato anulado).
+    if financing:
+        db.query(Installment).filter(
+            Installment.financing_plan_id == financing.id
+        ).update({
+            "status": "anulada",
+            "updated_at": func.now(),
+        })
+        financing.outstanding_balance = Decimal("0.00")
+
+    # Anular el pago al contado asociado, si existe.
+    from app.domain.owners_models import CashPayment
+    db.query(CashPayment).filter(
+        CashPayment.contract_id == contract_id
+    ).update({
+        "status": "anulado",
+        "updated_at": func.now(),
+    })
+
     db.commit()
     return None
 
@@ -644,7 +665,8 @@ def generate_payment_schedule(
         financing.first_installment_date,
         financing.number_of_installments,
         financing.installment_amount,
-        financing.frequency
+        financing.frequency,
+        financed_amount=financing.financed_amount
     )
     
     db.commit()
@@ -721,6 +743,10 @@ def get_contract_pdf(
     
     company = _company_config(db)
 
+    # Datos bancarios configurados en el proyecto (para depósitos)
+    bank_name = contract.project.bank_name if contract.project else None
+    bank_account_number = contract.project.bank_account_number if contract.project else None
+
     pdf = generate_contract_pdf(
         contract_number=contract.contract_number,
         company_name=settings.COMPANY_NAME,
@@ -743,6 +769,8 @@ def get_contract_pdf(
         advisor_name=detail["advisor_name"],
         notes=contract.notes,
         initial_vouchers=initial_vouchers,
+        bank_name=bank_name,
+        bank_account_number=bank_account_number,
     )
 
     # Persistir la URL si Cloudinary está disponible
@@ -902,6 +930,17 @@ def emit_contract_document(
 
     company = _company_config(db)
 
+    # Incluir la cuenta bancaria del proyecto en el encabezado del documento
+    accounts = list(company["company_accounts"])
+    project = contract.project
+    if project and (project.bank_name or project.bank_account_number):
+        if project.bank_name and project.bank_account_number:
+            accounts.append(f"{project.bank_name} - N° {project.bank_account_number}")
+        elif project.bank_account_number:
+            accounts.append(f"N° de cuenta {project.bank_account_number}")
+        else:
+            accounts.append(project.bank_name)
+
     pdf = generate_commercial_document_pdf(
         document_type=doc_data.document_type,
         document_number=document_number,
@@ -909,6 +948,7 @@ def emit_contract_document(
         company_ruc=company["company_ruc"],
         company_address=company["company_address"],
         company_razon_social=company["company_razon_social"],
+        company_accounts=accounts,
         company_phone=settings.COMPANY_WHATSAPP,
         customer_name=detail["owner_name"],
         customer_document=detail["owner_document"],

@@ -10,6 +10,8 @@ from app.infrastructure.cloudinary_service import upload_file
 
 router = APIRouter(prefix="/uploads", tags=["uploads"], dependencies=[Depends(require_admin)])
 
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
+
 ALLOWED_TYPES = {
     "image": {"jpg", "jpeg", "png", "webp", "gif", "svg"},
     "video": {"mp4", "webm", "mov", "avi"},
@@ -26,6 +28,48 @@ def get_resource_type_from_extension(extension: str) -> str:
         return "video"
     else:
         return "raw"
+
+
+_MAGIC_PREFIXES: dict[str, list[bytes]] = {
+    "pdf": [b"%PDF-"],
+    "jpg": [b"\xff\xd8\xff"],
+    "jpeg": [b"\xff\xd8\xff"],
+    "png": [b"\x89PNG\r\n\x1a\n"],
+    "gif": [b"GIF87a", b"GIF89a"],
+    "webp": [b"RIFF"],
+    "svg": [b"<", b"<?xml"],
+    "mp4": [b"ftyp"],
+    "mov": [b"ftypqt", b"ftyp"],
+    "webm": [b"\x1a\x45\xdf\xa3"],
+    "avi": [b"RIFF"],
+    "doc": [b"\xd0\xcf\x11\xe0"],
+    "docx": [b"PK\x03\x04"],
+    "xls": [b"\xd0\xcf\x11\xe0"],
+    "xlsx": [b"PK\x03\x04"],
+}
+
+
+def _matches_magic(file_path: str, extension: str) -> bool:
+    """Verifica que los primeros bytes del archivo coincidan con su extensión."""
+    prefixes = _MAGIC_PREFIXES.get(extension)
+    if not prefixes:
+        return True
+
+    with open(file_path, "rb") as fh:
+        head = fh.read(16)
+    if not head:
+        return False
+
+    if extension == "webp":
+        return head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    if extension in ("mp4", "mov"):
+        return head[4:8] == b"ftyp"
+    if extension == "avi":
+        return head[:4] == b"RIFF" and head[8:12] == b"AVI "
+    if extension == "svg":
+        text = head.lstrip().lower()
+        return text.startswith(b"<svg") or text.startswith(b"<?xml")
+    return any(head.startswith(prefix) for prefix in prefixes)
 
 
 @router.post("")
@@ -65,6 +109,18 @@ async def upload(
     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}") as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
+        file_size = tmp.tell()
+
+    if file_size > MAX_UPLOAD_SIZE:
+        os.unlink(tmp_path)
+        raise HTTPException(status_code=413, detail="El archivo supera el límite de 10 MB.")
+
+    if not _matches_magic(tmp_path, extension):
+        os.unlink(tmp_path)
+        raise HTTPException(
+            status_code=400,
+            detail="El contenido del archivo no coincide con su extensión.",
+        )
 
     try:
         result = upload_file(tmp_path, folder=folder, resource_type=resource_type)
@@ -127,6 +183,23 @@ async def upload_multiple(
             with tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}") as tmp:
                 shutil.copyfileobj(file.file, tmp)
                 tmp_path = tmp.name
+                file_size = tmp.tell()
+
+            if file_size > MAX_UPLOAD_SIZE:
+                os.unlink(tmp_path)
+                errors.append({
+                    "filename": file.filename,
+                    "error": "El archivo supera el límite de 10 MB"
+                })
+                continue
+
+            if not _matches_magic(tmp_path, extension):
+                os.unlink(tmp_path)
+                errors.append({
+                    "filename": file.filename,
+                    "error": "El contenido del archivo no coincide con su extensión"
+                })
+                continue
 
             try:
                 result = upload_file(tmp_path, folder=folder, resource_type=resource_type)

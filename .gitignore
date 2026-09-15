@@ -7,6 +7,11 @@ venv/
 env/
 
 # Env files (never commit secrets)
+# Se conservan trackeables los templates *.example (no contienen secretos reales).
+.env
+.env.production
+.env.local
+.env.*.local
 
 
 # Builds

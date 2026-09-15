@@ -53,6 +53,8 @@ export function VoucherUploader({
     }
   };
 
+  const MAX_SIZE = 10 * 1024 * 1024;
+
   const handleFiles = (files: FileList) => {
     const validFiles = Array.from(files).filter((file) => {
       const isImage = file.type.startsWith("image/");
@@ -65,7 +67,19 @@ export function VoucherUploader({
       return;
     }
 
-    const newVouchers: VoucherFile[] = validFiles.map((file) => ({
+    const oversized = validFiles.filter((file) => file.size > MAX_SIZE);
+    if (oversized.length > 0) {
+      alert(
+        `Los siguientes archivos superan el límite de 10 MB y no se subirán:\n${oversized
+          .map((f) => `• ${f.name} (${(f.size / (1024 * 1024)).toFixed(1)} MB)`)
+          .join("\n")}`
+      );
+    }
+
+    const accepted = validFiles.filter((file) => file.size <= MAX_SIZE);
+    if (accepted.length === 0) return;
+
+    const newVouchers: VoucherFile[] = accepted.map((file) => ({
       id: `${Date.now()}-${Math.random()}`,
       file,
       amount: "",

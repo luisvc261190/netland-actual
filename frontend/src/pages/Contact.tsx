@@ -4,6 +4,7 @@ import { MapPin, MessageCircle, Phone } from "lucide-react";
 import { api } from "../lib/api";
 import { whatsappLink } from "../lib/constants";
 import { validateName, validatePhone, validateEmail } from "../lib/validations";
+import { usePageMeta } from "../lib/seo";
 import type { Advisor, Project } from "../types";
 import { Reveal } from "../components/Reveal";
 import { useLeadForm } from "../features/leads/useLeadForm";
@@ -20,6 +21,13 @@ export default function Contact() {
     queryFn: () => api.get<Advisor[]>("/advisors"),
   });
   const { submit, submitting, submitted } = useLeadForm();
+
+  usePageMeta({
+    title: "Contacto | NETLAND Corporación Inmobiliaria",
+    description:
+      "Contáctanos para conocer los proyectos inmobiliarios de Netland en Cañete. Asesoría personalizada, visitas guiadas y financiamiento directo sin intereses.",
+    path: "/contacto",
+  });
   const [form, setForm] = useState({
     name: "",
     last_name: "",

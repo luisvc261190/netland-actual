@@ -12,7 +12,7 @@ Usa este checklist antes de desplegar para asegurarte de que todo está listo.
 
 ### 2. Variables de entorno necesarias
 - [ ] `DATABASE_URL` - URL de Neon PostgreSQL
-- [ ] `SECRET_KEY` - Clave secreta (mínimo 32 caracteres)
+- [ ] `JWT_SECRET` - Clave secreta (mínimo 32 caracteres)
 - [ ] `CLOUDINARY_CLOUD_NAME` - Cloud name de Cloudinary
 - [ ] `CLOUDINARY_API_KEY` - API key de Cloudinary
 - [ ] `CLOUDINARY_API_SECRET` - API secret de Cloudinary

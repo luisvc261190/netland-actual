@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 
 export function CoreSpinLoader() {
-  const [loadingText, setLoadingText] = useState('Initializing');
+  const [loadingText, setLoadingText] = useState('Inicializando');
 
   useEffect(() => {
-    const states = ['Loading...', 'Fetching Data..', 'Syncing...', 'Processing..', 'Optimizing...'];
+    const states = ['Cargando...', 'Obteniendo datos...', 'Sincronizando...', 'Procesando...', 'Optimizando...'];
     let i = 0;
     const interval = setInterval(() => {
       i = (i + 1) % states.length;

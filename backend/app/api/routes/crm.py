@@ -1,13 +1,14 @@
 from datetime import datetime, date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_admin
+from app.core.dependencies import get_current_user, get_current_user_optional, require_admin
 from app.core.pricing import compute_payment_plan, lot_gross_price
+from app.core.rate_limit import client_ip, lead_rate_limiter
 from app.domain.models import (
     Advisor,
     Client,
@@ -322,12 +323,32 @@ def _auto_assign_lead_to_advisor(lead: Lead, db: Session) -> None:
 # ---- Leads ----
 
 @router.post("/leads", response_model=LeadOut, status_code=201)
-def create_lead(payload: PublicLeadCreate | LeadCreate, db: Session = Depends(get_db)):
+def create_lead(
+    request: Request,
+    payload: PublicLeadCreate | LeadCreate,
+    current_user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
     """Endpoint público y admin para crear un lead.
-    
+
     - Si no se especifica advisor_id, se asigna automáticamente
     - Admin puede especificar advisor_id manualmente
+    - Llamadas anónimas: limitadas por IP y sin poder asignar asesor
     """
+    # Las llamadas anónimas (formulario web) están limitadas por IP y no pueden
+    # asignar un asesor manualmente.
+    if current_user is None:
+        if not lead_rate_limiter.is_allowed(client_ip(request)):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Demasiadas solicitudes. Espera unos minutos antes de volver a intentarlo.",
+            )
+        if getattr(payload, "advisor_id", None) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No autorizado para asignar un asesor.",
+            )
+
     client = Client(
         name=payload.name,
         last_name=payload.last_name,
@@ -847,6 +868,8 @@ def generate_quote_pdf_endpoint(
     advisor_phone = (quote.advisor.phone or quote.advisor.whatsapp) if quote.advisor else None
 
     project_name = quote.project.name if quote.project else "Netland"
+    bank_name = quote.project.bank_name if quote.project else None
+    bank_account_number = quote.project.bank_account_number if quote.project else None
     lot_code = quote.lot.code if quote.lot else ""
     
     # Calcular descuento
@@ -888,6 +911,8 @@ def generate_quote_pdf_endpoint(
         or "Urb. Magisterial Mz. B Lote. 3, (cerca al Grifo Primax) - San Vicente de Cañete, Lima, Perú",
         company_accounts=company_accounts,
         project_name=project_name,
+        bank_name=bank_name,
+        bank_account_number=bank_account_number,
         lot_code=lot_code,
         area_m2=float(quote.lot.area_m2) if quote.lot and quote.lot.area_m2 else None,
         lot_price=float(quote.lot_price or 0),

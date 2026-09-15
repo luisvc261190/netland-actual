@@ -35,6 +35,7 @@ import type { Project } from "../types";
 import { Reveal } from "../components/Reveal";
 import { CoreSpinLoader } from "../components/ui/CoreSpinLoader";
 import { useEffect, useState } from "react";
+import { usePageMeta } from "../lib/seo";
 
 interface SiteConfig {
   hero_video_url?: string;
@@ -155,6 +156,13 @@ export default function Home() {
   const { data: config } = useQuery<SiteConfig>({
     queryKey: ["public-config"],
     queryFn: () => api.get("/config/public"),
+  });
+
+  usePageMeta({
+    title: "Netland Corporación Inmobiliaria | El lugar donde mereces vivir",
+    description:
+      "Proyectos inmobiliarios en Cañete con respaldo, confianza y oportunidades de crecimiento. Lotes con financiamiento directo y atención personalizada.",
+    path: "/",
   });
 
   return (

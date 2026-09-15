@@ -244,6 +244,21 @@ def generate_sale_pdf(
             "installment_value": round(pdf_plan["installment_value"], 2),
         }
 
+        # Incluir la cuenta bancaria del proyecto en el encabezado del documento
+        accounts = [
+            line.strip()
+            for line in (config.get("company_bank_accounts") or "").splitlines()
+            if line.strip()
+        ]
+        project = contract.project
+        if project and (project.bank_name or project.bank_account_number):
+            if project.bank_name and project.bank_account_number:
+                accounts.append(f"{project.bank_name} - N° {project.bank_account_number}")
+            elif project.bank_account_number:
+                accounts.append(f"N° de cuenta {project.bank_account_number}")
+            else:
+                accounts.append(project.bank_name)
+
         pdf = generate_commercial_document_pdf(
             document_type="venta",
             document_number=contract.contract_number,
@@ -261,6 +276,7 @@ def generate_sale_pdf(
             total_amount=total_amount,
             note=contract.notes or "",
             payment_plan=payment_plan_info,
+            company_accounts=accounts,
         )
 
         return Response(

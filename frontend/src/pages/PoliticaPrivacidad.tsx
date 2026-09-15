@@ -1,4 +1,5 @@
 import { Reveal } from "../components/Reveal";
+import { usePageMeta } from "../lib/seo";
 
 const sections = [
   {
@@ -91,6 +92,13 @@ Para ejercer estos derechos, puede contactarnos a través de nuestros canales of
 ];
 
 export default function PoliticaPrivacidad() {
+  usePageMeta({
+    title: "Política de Privacidad | NETLAND Corporación Inmobiliaria",
+    description:
+      "Conoce cómo Netland Corporación Inmobiliaria protege y trata tus datos personales conforme a la legislación peruana.",
+    path: "/politica-de-privacidad",
+  });
+
   return (
     <div>
       {/* Hero */}

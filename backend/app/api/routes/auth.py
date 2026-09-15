@@ -4,22 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.core.rate_limit import login_rate_limiter
+from app.core.rate_limit import client_ip, login_rate_limiter
 from app.core.security import create_access_token, revoke_token, verify_password
 from app.domain.models import User
 from app.schemas.auth import LoginRequest, Token, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-def _client_ip(request: Request) -> str:
-    """Devuelve la IP del cliente teniendo en cuenta proxies confiables."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
 
 
 def _build_token(user: User) -> Token:
@@ -46,13 +36,13 @@ def login(
     form: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    if not login_rate_limiter.is_allowed(_client_ip(request)):
+    if not login_rate_limiter.is_allowed(client_ip(request)):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Demasiados intentos. Espera unos minutos antes de volver a intentarlo.",
         )
     user = _authenticate(db, form.username, form.password)
-    login_rate_limiter.reset(_client_ip(request))
+    login_rate_limiter.reset(client_ip(request))
     return _build_token(user)
 
 
@@ -62,13 +52,13 @@ def login_json(
     payload: LoginRequest,
     db: Session = Depends(get_db),
 ):
-    if not login_rate_limiter.is_allowed(_client_ip(request)):
+    if not login_rate_limiter.is_allowed(client_ip(request)):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Demasiados intentos. Espera unos minutos antes de volver a intentarlo.",
         )
     user = _authenticate(db, payload.email, payload.password)
-    login_rate_limiter.reset(_client_ip(request))
+    login_rate_limiter.reset(client_ip(request))
     return _build_token(user)
 
 

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ArrowRight, MapPin } from "lucide-react";
 import { api } from "../lib/api";
+import { usePageMeta } from "../lib/seo";
 import type { Project } from "../types";
 import { Reveal } from "../components/Reveal";
 import { CoreSpinLoader } from "../components/ui/CoreSpinLoader";
@@ -14,6 +15,13 @@ export default function Projects() {
   const { data: projects, isLoading } = useQuery({
     queryKey: ["projects"],
     queryFn: () => api.get<Project[]>("/projects?published_only=true"),
+  });
+
+  usePageMeta({
+    title: "Proyectos en Cañete | NETLAND",
+    description:
+      "Conoce los proyectos inmobiliarios de Netland en Cañete. Lotes con financiamiento directo, planos interactivos y disponibilidad en tiempo real.",
+    path: "/proyectos",
   });
 
   return (

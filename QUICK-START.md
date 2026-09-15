@@ -49,7 +49,7 @@ Click en **"Advanced"** → **"Add Environment Variable"**
 DATABASE_URL
 postgresql://usuario:password@host.neon.tech/netland?sslmode=require
 
-SECRET_KEY
+JWT_SECRET
 TuClaveSecretaSuperSeguraMinimo32Caracteres
 
 CLOUDINARY_CLOUD_NAME

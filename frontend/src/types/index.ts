@@ -21,6 +21,8 @@ export interface Project {
   hero_video: string;
   logo_url: string;
   plan_pdf_url: string;
+  bank_name: string;
+  bank_account_number: string;
   status: string;
   is_published: boolean;
   legal_info: string;

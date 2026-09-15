@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { whatsappLink } from "../lib/constants";
+import { usePageMeta } from "../lib/seo";
 
 const values = [
   {
@@ -71,6 +72,13 @@ const stats = [
 ];
 
 export default function About() {
+  usePageMeta({
+    title: "Nosotros | NETLAND Corporación Inmobiliaria",
+    description:
+      "Empresa inmobiliaria peruana con origen en Cañete. Desarrollamos proyectos registrados en SUNARP con financiamiento directo y atención personalizada.",
+    path: "/nosotros",
+  });
+
   return (
     <div>
       {/* Hero moderno y dinámico */}

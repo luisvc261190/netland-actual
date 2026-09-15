@@ -12,6 +12,7 @@ import {
   MapPin,
   Boxes,
   CheckCircle2,
+  Landmark,
 } from "lucide-react";
 import { api } from "../../../lib/api";
 import { API_URL } from "../../../lib/constants";
@@ -182,6 +183,18 @@ export default function AdminProjects() {
                   <MapPin className="h-3.5 w-3.5 shrink-0 text-netland-accent" />
                   <span className="line-clamp-1">{project.location || "Sin ubicación"}</span>
                 </p>
+
+                {project.bank_name && (
+                  <p className="mb-3 flex items-center gap-1.5 text-xs text-netland-muted">
+                    <Landmark className="h-3.5 w-3.5 shrink-0 text-netland-accent" />
+                    <span className="line-clamp-1">
+                      {project.bank_name}
+                      {project.bank_account_number
+                        ? ` · N° ${project.bank_account_number}`
+                        : ""}
+                    </span>
+                  </p>
+                )}
 
                 {/* Estadísticas */}
                 <div className="mb-3 grid grid-cols-2 gap-2">

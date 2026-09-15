@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Mail, MessageCircle, Phone, Award, Star } from "lucide-react";
 import { api } from "../lib/api";
 import { whatsappLink } from "../lib/constants";
+import { usePageMeta } from "../lib/seo";
 import type { Advisor } from "../types";
 import { Reveal } from "../components/Reveal";
 import { CoreSpinLoader } from "../components/ui/CoreSpinLoader";
@@ -10,6 +11,13 @@ export default function Advisors() {
   const { data: advisors, isLoading } = useQuery({
     queryKey: ["advisors"],
     queryFn: () => api.get<Advisor[]>("/advisors"),
+  });
+
+  usePageMeta({
+    title: "Asesores | NETLAND Corporación Inmobiliaria",
+    description:
+      "Nuestro equipo de asesores inmobiliarios en Cañete te acompaña en cada paso: visita guiada, cotización y financiamiento de tu lote.",
+    path: "/asesores",
   });
 
   // Filtrar solo asesores disponibles (el backend los ordena por creación, últimos primero)

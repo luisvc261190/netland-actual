@@ -2,13 +2,17 @@ services:
   - type: web
     name: netland-backend
     runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: netland-db
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: ENVIRONMENT
@@ -25,4 +29,9 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
-    healthCheckPath: /api/health
+
+databases:
+  - name: netland-db
+    plan: free
+    databaseName: netland
+    user: netland

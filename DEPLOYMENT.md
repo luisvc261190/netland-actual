@@ -56,7 +56,7 @@ DATABASE_URL=postgresql://usuario:password@host/database
 👉 **Obtener de Neon:** Ve a tu proyecto en Neon → Connection String
 
 ```
-SECRET_KEY=tu_clave_secreta_super_segura_cambiala_ahora
+JWT_SECRET=tu_clave_secreta_super_segura_cambiala_ahora
 ```
 👉 **Generar una nueva:** Usa un generador de passwords seguro (mínimo 32 caracteres)
 
