@@ -19,7 +19,7 @@ class ClientOut(BaseModel):
     last_name: str
     phone: str
     whatsapp: str
-    email: str | None = None
+    email: EmailStr | None = None
     notes: str
 
     model_config = ConfigDict(from_attributes=True)

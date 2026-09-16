@@ -595,10 +595,9 @@ def list_clients(
     db: Session = Depends(get_db),
 ):
     q = db.query(Client)
-    if current_user.role and current_user.role.name == "ASESOR":
-        # Los asesores solo ven los clientes de sus propios leads. El resto de
-        # roles (ADMIN, VENTAS, SUPERVISOR, COBRANZAS) ve todos los clientes,
-        # pues pueden crear ventas sobre cualquiera de ellos.
+    if not _is_admin_user(current_user):
+    # Los asesores solo ven los clientes de sus propios leads.
+
         q = (
             q.join(Lead, Lead.client_id == Client.id)
             .filter(Lead.advisor_id == _scoped_advisor_id(current_user))
