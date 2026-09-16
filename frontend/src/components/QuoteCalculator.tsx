@@ -599,7 +599,7 @@ export function QuoteDownloadButton({
   } = useQuery({
     queryKey: ["quote-pdf", quoteId],
 
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const token =
         localStorage.getItem(
           "netland_token"
@@ -611,6 +611,7 @@ export function QuoteDownloadButton({
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          signal,
         }
       );
 

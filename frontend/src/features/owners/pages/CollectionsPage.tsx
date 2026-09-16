@@ -40,13 +40,13 @@ export default function CollectionsPage() {
   // Fetch dashboard stats
   const { data: dashboard, isLoading: loadingDashboard } = useQuery({
     queryKey: ["collections-dashboard"],
-    queryFn: () => api.get<CollectionDashboard>("/collections/dashboard", true),
+    queryFn: ({ signal }) => api.get<CollectionDashboard>("/collections/dashboard", true, signal),
   });
 
   // Fetch projects for filter
   const { data: projects } = useQuery({
     queryKey: ["projects-admin"],
-    queryFn: () => api.get<Project[]>("/projects", true),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects", true, signal),
   });
 
   // Fetch collection items
@@ -55,12 +55,12 @@ export default function CollectionsPage() {
     isLoading: loadingItems,
   } = useQuery({
     queryKey: ["collections-items", projectId, status, search],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams();
       if (projectId) params.append("project_id", projectId.toString());
       if (status) params.append("status", status);
       if (search) params.append("search", search);
-      return api.get<CollectionItem[]>(`/collections/items?${params.toString()}`, true);
+      return api.get<CollectionItem[]>(`/collections/items?${params.toString()}`, true, signal);
     },
   });
 

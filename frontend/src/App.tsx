@@ -76,6 +76,17 @@ const ImportOwnersPage = lazy(
 );
 const SalesPage = lazy(() => import("./features/owners/pages/SalesPage"));
 
+// Módulo de Comisiones y Planillas
+const AdminCommissions = lazy(
+  () => import("./features/commissions/pages/CommissionsPage")
+);
+const AdminSalaries = lazy(
+  () => import("./features/commissions/pages/SalariesPage")
+);
+const AdminCommissionPercentages = lazy(
+  () => import("./features/commissions/pages/CommissionPercentagesPage")
+);
+
 export default function App() {
   return (
     <ToastProvider>
@@ -263,6 +274,30 @@ export default function App() {
               element={
                 <RequireRole roles={COLLECTIONS_ROLES}>
                   <CollectionsPage />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="comisiones"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <AdminCommissions />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="comisiones/porcentajes"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <AdminCommissionPercentages />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="mensualidades"
+              element={
+                <RequireRole roles={ADMIN_ROLES}>
+                  <AdminSalaries />
                 </RequireRole>
               }
             />

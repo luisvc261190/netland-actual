@@ -38,19 +38,19 @@ export default function ProjectGallery() {
   // Cargar proyecto
   const { data: project } = useQuery({
     queryKey: ["project-gallery", id],
-    queryFn: () => api.get<Project>(`/projects/${id}`),
+    queryFn: ({ signal }) => api.get<Project>(`/projects/${id}`, false, signal),
   });
 
   // Cargar galería de imágenes
   const { data: images, isLoading: loadingImages } = useQuery({
     queryKey: ["project-gallery-images", id],
-    queryFn: () => api.get<GalleryItem[]>(`/projects/${id}/gallery`),
+    queryFn: ({ signal }) => api.get<GalleryItem[]>(`/projects/${id}/gallery`, false, signal),
   });
 
   // Cargar videos
   const { data: videos, isLoading: loadingVideos } = useQuery({
     queryKey: ["project-videos", id],
-    queryFn: () => api.get<VideoItem[]>(`/projects/${id}/videos`),
+    queryFn: ({ signal }) => api.get<VideoItem[]>(`/projects/${id}/videos`, false, signal),
   });
 
   // Agregar imagen a galería

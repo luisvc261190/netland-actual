@@ -65,9 +65,9 @@ export default function ProjectForm() {
 
   const { isLoading } = useQuery({
     queryKey: ["project-form", id],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!id) return null;
-      const project = await api.get<Project>(`/projects/${id}`);
+      const project = await api.get<Project>(`/projects/${id}`, false, signal);
       setForm({
         slug: project.slug,
         name: project.name,

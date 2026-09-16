@@ -154,7 +154,7 @@ function KindBadge({ kind }: { kind: Announcement["kind"] }) {
 export function AnnouncementPopup() {
   const { data: announcements = [] } = useQuery({
     queryKey: ["announcements-active"],
-    queryFn: () => api.get<Announcement[]>("/announcements/active"),
+    queryFn: ({ signal }) => api.get<Announcement[]>("/announcements/active", false, signal),
     staleTime: 5 * 60 * 1000,
   });
 

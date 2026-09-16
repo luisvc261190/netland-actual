@@ -66,13 +66,13 @@ export default function AdminLeads() {
   // Cargar asesores
   const { data: advisors } = useQuery({
     queryKey: ["advisors"],
-    queryFn: () => api.get<Advisor[]>("/advisors", true),
+    queryFn: ({ signal }) => api.get<Advisor[]>("/advisors", true, signal),
   });
 
   // Cargar leads con filtros
   const { data: leads, isLoading } = useQuery({
     queryKey: ["leads", filters],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams();
       params.set("exclude_source", CAPTURED_SOURCES.join(","));
       
@@ -82,7 +82,7 @@ export default function AdminLeads() {
       if (filters.date_to) params.set("date_to", filters.date_to);
       if (filters.search) params.set("search", filters.search);
       
-      return api.get<Lead[]>(`/leads?${params.toString()}`, true);
+      return api.get<Lead[]>(`/leads?${params.toString()}`, true, signal);
     },
   });
 

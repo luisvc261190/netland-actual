@@ -1,6 +1,7 @@
 """
 Servicios de lógica de negocio para Propietarios y Cobranzas
 """
+import logging
 from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Optional, Tuple
@@ -24,6 +25,9 @@ from app.domain.owners_models import (
     ImportError,
     ContractDocument,
 )
+
+
+logger = logging.getLogger("netland.sales")
 
 
 class OwnersService:
@@ -864,12 +868,15 @@ class SalesService:
         query = db.query(Contract).options(
             joinedload(Contract.owner).joinedload(Owner.client),
             joinedload(Contract.project),
-            joinedload(Contract.lot).joinedload(Lot.block)
+            joinedload(Contract.lot).joinedload(Lot.block),
+            joinedload(Contract.advisor)
         )
         filters = filters or {}
 
         if filters.get("project_id"):
             query = query.filter(Contract.project_id == filters["project_id"])
+        if filters.get("advisor_id"):
+            query = query.filter(Contract.advisor_id == filters["advisor_id"])
         if filters.get("status"):
             query = query.filter(Contract.status == filters["status"])
         if filters.get("payment_modality"):
@@ -901,6 +908,8 @@ class SalesService:
                 "owner_document": detail["owner_document"],
                 "owner_phone": detail["owner_phone"],
                 "project_name": contract.project.short_name,
+                "advisor_id": contract.advisor_id,
+                "advisor_name": contract.advisor.name if contract.advisor else None,
                 "block_code": detail["block_code"],
                 "lot_code": detail["lot_code"],
                 "lot_area_m2": float(contract.lot_area_m2),
@@ -1132,5 +1141,20 @@ class SalesService:
             db.add(cash)
             db.commit()
             db.refresh(contract)
+
+        # --- Comisión automática del asesor ---
+        try:
+            from app.infrastructure.commissions_service import CommissionsService
+
+            commission = CommissionsService.auto_generate_for_contract(
+                db, contract, user_id=user_id
+            )
+            if commission is not None:
+                contract.generated_commission = commission
+        except Exception:
+            logger.exception(
+                "No se pudo generar la comisión automática del contrato %s",
+                contract.id,
+            )
 
         return contract

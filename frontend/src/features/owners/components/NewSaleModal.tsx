@@ -6,7 +6,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { VoucherUploader, VoucherFile } from "../../../components/ui/VoucherUploader";
 import { useToast } from "../../../components/ui/Toast";
 import { Loader2 } from "lucide-react";
-import type { ClientInfo as Client, Project } from "../../../types";
+import type { ClientInfo as Client, Project, Advisor } from "../../../types";
 import { PERSON_TYPES, DOCUMENT_TYPES, formatSoles } from "../constants";
 import ClientSelect from "./ClientSelect";
 
@@ -33,6 +33,7 @@ interface SaleForm {
   secondary_phone: string;
   project_id: string;
   lot_id: string;
+  advisor_id: string;
   area_m2: string;
   price_per_m2: string;
   total_price: string;
@@ -59,6 +60,7 @@ const emptyForm: SaleForm = {
   secondary_phone: "",
   project_id: "",
   lot_id: "",
+  advisor_id: "",
   area_m2: "",
   price_per_m2: "",
   total_price: "",
@@ -109,42 +111,57 @@ export default function NewSaleModal({ open, onClose }: NewSaleModalProps) {
 
   const { data: clients } = useQuery({
     queryKey: ["clients"],
-    queryFn: () => api.get<Client[]>("/clients", true),
+    queryFn: ({ signal }) => api.get<Client[]>("/clients", true, signal),
   });
 
   const { data: projects } = useQuery({
     queryKey: ["projects"],
-    queryFn: () => api.get<Project[]>("/projects", true),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects", true, signal),
+  });
+
+  const { data: advisors } = useQuery({
+    queryKey: ["advisors"],
+    queryFn: ({ signal }) => api.get<Advisor[]>("/advisors", true, signal),
   });
 
   const projectId = form.project_id ? Number(form.project_id) : null;
 
   const { data: availableLots } = useQuery({
     queryKey: ["lots-available", projectId],
-    queryFn: () =>
-      api.get<LotInfo[]>(`/projects/${projectId}/lots?status=available`, true),
+    queryFn: ({ signal }) =>
+      api.get<LotInfo[]>(`/projects/${projectId}/lots?status=available`, true, signal),
     enabled: !!projectId,
   });
 
   const selectedClient = clients?.find((c) => String(c.id) === String(form.client_id));
 
   const saleMutation = useMutation({
-    mutationFn: (payload: unknown) => api.post<{ contract_number?: string }>("/sales", payload, true),
+    mutationFn: (payload: unknown) =>
+      api.post<{ contract_number?: string; commission_id?: number; commission_amount?: number }>(
+        "/sales",
+        payload,
+        true,
+      ),
     onSuccess: (res, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       queryClient.invalidateQueries({ queryKey: ["owners"] });
       queryClient.invalidateQueries({ queryKey: ["lots-available"] });
-      
-      // Mensaje de éxito con información de vouchers
+      queryClient.invalidateQueries({ queryKey: ["comisiones"] });
+
+      // Mensaje de éxito con información de vouchers y/o comisión
       let successMessage = res.contract_number
         ? `Venta registrada · Contrato ${res.contract_number}`
         : "Venta registrada";
-      
+
+      if (res.commission_id) {
+        successMessage += ` · Comisión generada: ${formatSoles(res.commission_amount ?? 0)}`;
+      }
+
       if (variables.initial_vouchers && variables.initial_vouchers.length > 0) {
         successMessage += ` · ${variables.initial_vouchers.length} voucher${variables.initial_vouchers.length > 1 ? 's' : ''} subido${variables.initial_vouchers.length > 1 ? 's' : ''} correctamente`;
       }
-      
+
       toast(successMessage);
       setForm(emptyForm);
       setVouchers([]);
@@ -310,6 +327,7 @@ export default function NewSaleModal({ open, onClose }: NewSaleModalProps) {
       secondary_phone: form.secondary_phone || null,
       project_id: Number(form.project_id),
       lot_id: Number(form.lot_id),
+      advisor_id: form.advisor_id ? Number(form.advisor_id) : undefined,
       contract_date: form.contract_date,
       start_date: form.start_date,
       lot_area_m2: Number(form.area_m2),
@@ -489,6 +507,24 @@ export default function NewSaleModal({ open, onClose }: NewSaleModalProps) {
               </option>
             ))}
           </Select>
+        </Field>
+
+        <Field label="Asesor de ventas" className="sm:col-span-2">
+          <Select
+            value={form.advisor_id}
+            onChange={(e) => setSelected({ advisor_id: e.target.value })}
+          >
+            <option value="">Sin asesor</option>
+            {advisors?.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+          <span className="mt-1 block text-xs text-netland-muted">
+            Si el asesor tiene un porcentaje de comisión configurado para este
+            proyecto, su comisión se generará automáticamente al registrar la venta.
+          </span>
         </Field>
 
         <Field label="Lote disponible" className="sm:col-span-2">

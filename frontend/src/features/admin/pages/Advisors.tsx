@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Pencil, Plus, RotateCcw, Trash2, Upload } from "lucide-react";
 import { api } from "../../../lib/api";
 import type { Advisor } from "../../../types";
-import { PageHeader, Button, Card, Field, Input, Textarea, Table, Badge } from "../ui";
+import { PageHeader, Button, Card, Field, Input, Select, Textarea, Table, Badge } from "../ui";
 import { Modal } from "../../../components/ui/Modal";
 import { useToast } from "../../../components/ui/Toast";
 import { EmptyState } from "../../../components/ui/EmptyState";
@@ -18,6 +18,12 @@ const emptyForm = {
   email: "",
   is_available: true,
   bio: "",
+  document_type: "DNI",
+  document_number: "",
+  bank_name: "",
+  account_number: "",
+  is_external: false,
+  base_salary: "",
 };
 
 export default function AdminAdvisors() {
@@ -30,14 +36,20 @@ export default function AdminAdvisors() {
 
   const { data: advisors } = useQuery({
     queryKey: ["advisors-admin"],
-    queryFn: () => api.get<Advisor[]>("/advisors"),
+    queryFn: ({ signal }) => api.get<Advisor[]>("/advisors?include_deleted=true", false, signal),
   });
 
   const saveMutation = useMutation({
     mutationFn: () =>
       editing
-        ? api.put(`/advisors/${editing.id}`, form, true)
-        : api.post("/advisors", form, true),
+        ? api.put(`/advisors/${editing.id}`, {
+            ...form,
+            base_salary: form.base_salary === "" ? null : Number(form.base_salary),
+          }, true)
+        : api.post("/advisors", {
+            ...form,
+            base_salary: form.base_salary === "" ? null : Number(form.base_salary),
+          }, true),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["advisors-admin"] });
       toast(editing ? "Asesor actualizado." : "Asesor creado.");
@@ -51,6 +63,15 @@ export default function AdminAdvisors() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["advisors-admin"] });
       toast("Asesor eliminado.");
+    },
+    onError: (e) => toast(e.message, "error"),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (id: number) => api.post(`/advisors/${id}/restore`, undefined, true),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["advisors-admin"] });
+      toast("Asesor restaurado.");
     },
     onError: (e) => toast(e.message, "error"),
   });
@@ -73,6 +94,12 @@ export default function AdminAdvisors() {
       email: advisor.email ?? "",
       is_available: advisor.is_available,
       bio: advisor.bio,
+      document_type: advisor.document_type || "DNI",
+      document_number: advisor.document_number || "",
+      bank_name: advisor.bank_name || "",
+      account_number: advisor.account_number || "",
+      is_external: advisor.is_external,
+      base_salary: advisor.base_salary != null ? String(advisor.base_salary) : "",
     });
     setUploadMethod(advisor.photo_url ? "url" : "upload");
     setModalOpen(true);
@@ -108,7 +135,26 @@ export default function AdminAdvisors() {
                       {advisor.name.charAt(0)}
                     </div>
                   )}
-                  <span className="font-semibold text-netland-dark">{advisor.name}</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-netland-dark">{advisor.name}</span>
+                      {advisor.is_external && (
+                        <span className="inline-flex items-center rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-700">
+                          Externo
+                        </span>
+                      )}
+                      {advisor.deleted_at && (
+                        <span className="inline-flex items-center rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700">
+                          Eliminado
+                        </span>
+                      )}
+                    </div>
+                    {advisor.document_number && (
+                      <p className="text-xs text-netland-muted">
+                        {advisor.document_type} {advisor.document_number}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </td>
               <td className="px-5 py-3 text-netland-muted">{advisor.role_title}</td>
@@ -132,20 +178,33 @@ export default function AdminAdvisors() {
               </td>
               <td className="px-5 py-3">
                 <div className="flex gap-2">
-                  <Button variant="outline" className="!px-2.5 !py-1.5" onClick={() => openEdit(advisor)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="danger"
-                    className="!px-2.5 !py-1.5"
-                    onClick={async () => {
-                      if (await confirm(`¿Eliminar a ${advisor.name}?`)) {
-                        deleteMutation.mutate(advisor.id);
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {advisor.deleted_at ? (
+                    <Button
+                      variant="outline"
+                      className="!px-2.5 !py-1.5"
+                      title="Restaurar asesor"
+                      onClick={() => restoreMutation.mutate(advisor.id)}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                  ) : (
+                    <>
+                      <Button variant="outline" className="!px-2.5 !py-1.5" onClick={() => openEdit(advisor)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="danger"
+                        className="!px-2.5 !py-1.5"
+                        onClick={async () => {
+                          if (await confirm(`¿Eliminar a ${advisor.name}?`)) {
+                            deleteMutation.mutate(advisor.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </td>
             </tr>
@@ -246,6 +305,73 @@ export default function AdminAdvisors() {
               placeholder="Describe la experiencia y especialización del asesor..."
             />
           </Field>
+
+          {/* Datos de identidad y pago (módulo de comisiones) */}
+          <div className="flex items-center gap-3 pt-2">
+            <div className="h-px flex-1 bg-netland-light" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-netland-muted">
+              Identidad y pago de comisiones
+            </span>
+            <div className="h-px flex-1 bg-netland-light" />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Tipo de documento">
+              <Select
+                value={form.document_type}
+                onChange={(e) => setForm({ ...form, document_type: e.target.value })}
+              >
+                {["DNI", "CE", "RUC", "PASAPORTE", "OTRO"].map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Número de documento">
+              <Input
+                value={form.document_number}
+                onChange={(e) => setForm({ ...form, document_number: e.target.value })}
+                placeholder="Ej: 4XXXXXXXX"
+              />
+            </Field>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Banco">
+              <Input
+                value={form.bank_name}
+                onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+                placeholder="Ej: BCP, Interbank, BBVA"
+              />
+            </Field>
+            <Field label="Número de cuenta a depositar">
+              <Input
+                value={form.account_number}
+                onChange={(e) => setForm({ ...form, account_number: e.target.value })}
+                placeholder="Número de cuenta o interbancario"
+              />
+            </Field>
+          </div>
+
+          <Field label="Sueldo base mensual (S/)" hint="Se usa por defecto al registrar la mensualidad del asesor.">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.base_salary}
+              onChange={(e) => setForm({ ...form, base_salary: e.target.value })}
+              placeholder="Ej: 1200"
+            />
+          </Field>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.is_external}
+              onChange={(e) => setForm({ ...form, is_external: e.target.checked })}
+              className="h-4 w-4 accent-netland-primary"
+            />
+            Asesor externo (independiente, deposita comisiones a su cuenta)
+          </label>
 
           <label className="flex items-center gap-2 text-sm">
             <input

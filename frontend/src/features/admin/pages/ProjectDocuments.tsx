@@ -31,13 +31,13 @@ export default function ProjectDocuments() {
   // Cargar proyecto
   const { data: project } = useQuery({
     queryKey: ["project-documents", id],
-    queryFn: () => api.get<Project>(`/projects/${id}`),
+    queryFn: ({ signal }) => api.get<Project>(`/projects/${id}`, false, signal),
   });
 
   // Cargar documentos
   const { data: documents, isLoading } = useQuery({
     queryKey: ["project-documents-list", id],
-    queryFn: () => api.get<DocumentItem[]>(`/projects/${id}/documents`),
+    queryFn: ({ signal }) => api.get<DocumentItem[]>(`/projects/${id}/documents`, false, signal),
   });
 
   // Agregar documento

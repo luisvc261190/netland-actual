@@ -30,7 +30,7 @@ export default function AdminMedia() {
 
   const { data: projects } = useQuery({
     queryKey: ["projects-admin"],
-    queryFn: () => api.get<Project[]>("/projects"),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects", false, signal),
   });
 
   useEffect(() => {
@@ -43,19 +43,19 @@ export default function AdminMedia() {
 
   const gallery = useQuery({
     queryKey: ["admin-gallery", selectedProject],
-    queryFn: () => api.get<GalleryItem[]>(`/projects/${selectedProject}/gallery`),
+    queryFn: ({ signal }) => api.get<GalleryItem[]>(`/projects/${selectedProject}/gallery`, false, signal),
     enabled: !!selectedProject,
   });
 
   const videos = useQuery({
     queryKey: ["admin-videos", selectedProject],
-    queryFn: () => api.get<ProjectVideo[]>(`/projects/${selectedProject}/videos`),
+    queryFn: ({ signal }) => api.get<ProjectVideo[]>(`/projects/${selectedProject}/videos`, false, signal),
     enabled: !!selectedProject,
   });
 
   const documents = useQuery({
     queryKey: ["admin-documents", selectedProject],
-    queryFn: () => api.get<ProjectDocument[]>(`/projects/${selectedProject}/documents`),
+    queryFn: ({ signal }) => api.get<ProjectDocument[]>(`/projects/${selectedProject}/documents`, false, signal),
     enabled: !!selectedProject,
   });
 

@@ -10,7 +10,7 @@ import { CoreSpinLoader } from "../components/ui/CoreSpinLoader";
 export default function Advisors() {
   const { data: advisors, isLoading } = useQuery({
     queryKey: ["advisors"],
-    queryFn: () => api.get<Advisor[]>("/advisors"),
+    queryFn: ({ signal }) => api.get<Advisor[]>("/advisors", false, signal),
   });
 
   usePageMeta({

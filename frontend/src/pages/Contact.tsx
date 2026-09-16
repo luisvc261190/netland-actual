@@ -14,11 +14,11 @@ import { CheckCircle2 } from "lucide-react";
 export default function Contact() {
   const { data: projects } = useQuery({
     queryKey: ["projects"],
-    queryFn: () => api.get<Project[]>("/projects?published_only=true"),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects?published_only=true", false, signal),
   });
   const { data: advisors } = useQuery({
     queryKey: ["advisors"],
-    queryFn: () => api.get<Advisor[]>("/advisors"),
+    queryFn: ({ signal }) => api.get<Advisor[]>("/advisors", false, signal),
   });
   const { submit, submitting, submitted } = useLeadForm();
 

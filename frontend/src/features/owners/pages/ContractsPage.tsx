@@ -45,7 +45,7 @@ export default function ContractsPage() {
   // Fetch projects
   const { data: projects } = useQuery({
     queryKey: ["projects-admin"],
-    queryFn: () => api.get<Project[]>("/projects", true),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects", true, signal),
   });
 
   // Fetch contracts
@@ -54,12 +54,12 @@ export default function ContractsPage() {
     isLoading,
   } = useQuery({
     queryKey: ["contracts", projectId, status, search],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams();
       if (projectId) params.append("project_id", projectId.toString());
       if (status) params.append("status", status);
       if (search) params.append("search", search);
-      return api.get<Contract[]>(`/contracts?${params.toString()}`, true);
+      return api.get<Contract[]>(`/contracts?${params.toString()}`, true, signal);
     },
   });
 

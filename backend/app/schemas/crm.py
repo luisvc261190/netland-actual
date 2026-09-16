@@ -142,6 +142,13 @@ class AdvisorCreate(BaseModel):
     is_available: bool = True
     bio: str = ""
     sort_order: int = 0
+    # Datos de identidad y pago
+    document_type: str = "DNI"  # DNI | CE | RUC | PASAPORTE | OTRO
+    document_number: str = ""
+    bank_name: str = ""
+    account_number: str = ""
+    is_external: bool = False
+    base_salary: float | None = None
 
 
 class AdvisorUpdate(BaseModel):
@@ -155,6 +162,12 @@ class AdvisorUpdate(BaseModel):
     is_available: bool | None = None
     bio: str | None = None
     sort_order: int | None = None
+    document_type: str | None = None
+    document_number: str | None = None
+    bank_name: str | None = None
+    account_number: str | None = None
+    is_external: bool | None = None
+    base_salary: float | None = None
 
 
 class AdvisorOut(BaseModel):
@@ -169,6 +182,13 @@ class AdvisorOut(BaseModel):
     is_available: bool
     bio: str
     sort_order: int
+    document_type: str
+    document_number: str
+    bank_name: str
+    account_number: str
+    is_external: bool
+    base_salary: float | None = None
+    deleted_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

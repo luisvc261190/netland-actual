@@ -30,7 +30,7 @@ export default function PaymentDetailPage() {
 
   const { data: payment, isLoading } = useQuery({
     queryKey: ["payment", paymentId],
-    queryFn: () => api.get<PaymentDetail>(`/payments/${paymentId}`, true),
+    queryFn: ({ signal }) => api.get<PaymentDetail>(`/payments/${paymentId}`, true, signal),
     enabled: !!paymentId,
   });
 

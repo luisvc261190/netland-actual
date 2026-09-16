@@ -467,47 +467,47 @@ export default function Dashboard() {
   type SummaryQuery = { data?: DashboardSummary; isLoading: boolean; isError: boolean; refetch: () => void };
   const summary = useQuery({
     queryKey: ["dashboard", "summary", period, projectId, advisorId],
-    queryFn: () => api.get<DashboardSummary>(`/dashboard/summary${summaryParams}`, true),
+    queryFn: ({ signal }) => api.get<DashboardSummary>(`/dashboard/summary${summaryParams}`, true, signal),
   }) as SummaryQuery;
   const trend = useQuery({
     queryKey: ["dashboard", "trend", rangeTrend, projectId, advisorId],
-    queryFn: () => api.get<DashboardTrendPoint[]>(`/dashboard/trend${trendParams}`, true),
+    queryFn: ({ signal }) => api.get<DashboardTrendPoint[]>(`/dashboard/trend${trendParams}`, true, signal),
   });
   const cobranzaTrend = useQuery({
     queryKey: ["dashboard", "trend", rangeCobranza, projectId, advisorId],
-    queryFn: () => api.get<DashboardTrendPoint[]>(`/dashboard/trend${cobranzaParams}`, true),
+    queryFn: ({ signal }) => api.get<DashboardTrendPoint[]>(`/dashboard/trend${cobranzaParams}`, true, signal),
   });
   const projects = useQuery({
     queryKey: ["dashboard", "projects"],
-    queryFn: () => api.get<DashboardProjectPerformance[]>("/dashboard/projects", true),
+    queryFn: ({ signal }) => api.get<DashboardProjectPerformance[]>("/dashboard/projects", true, signal),
   });
   const advisors = useQuery({
     queryKey: ["dashboard", "advisors", rankPeriod, projectId],
-    queryFn: () => api.get<DashboardAdvisorRow[]>(`/dashboard/advisors${advisorsParams}`, true),
+    queryFn: ({ signal }) => api.get<DashboardAdvisorRow[]>(`/dashboard/advisors${advisorsParams}`, true, signal),
   });
   const funnel = useQuery({
     queryKey: ["dashboard", "funnel", projectId, advisorId],
-    queryFn: () => api.get<DashboardFunnel>(`/dashboard/funnel${buildParams({ project_id: projectId, advisor_id: isAdvisorOnly ? "" : advisorId })}`, true),
+    queryFn: ({ signal }) => api.get<DashboardFunnel>(`/dashboard/funnel${buildParams({ project_id: projectId, advisor_id: isAdvisorOnly ? "" : advisorId })}`, true, signal),
   });
   const sources = useQuery({
     queryKey: ["dashboard", "sources", rangeSources, projectId, advisorId],
-    queryFn: () => api.get<{ total: number; items: DashboardSourceDatum[] }>(`/dashboard/leads-by-source${sourcesParams}`, true),
+    queryFn: ({ signal }) => api.get<{ total: number; items: DashboardSourceDatum[] }>(`/dashboard/leads-by-source${sourcesParams}`, true, signal),
   });
   const clientsTrend = useQuery({
     queryKey: ["dashboard", "clients-trend", rangeClients, projectId, advisorId],
-    queryFn: () => api.get<DashboardClientsTrendPoint[]>(`/dashboard/clients-trend${clientsParams}`, true),
+    queryFn: ({ signal }) => api.get<DashboardClientsTrendPoint[]>(`/dashboard/clients-trend${clientsParams}`, true, signal),
   });
   const activity = useQuery({
     queryKey: ["dashboard", "activity"],
-    queryFn: () => api.get<DashboardActivityItem[]>("/dashboard/activity?limit=15", true),
+    queryFn: ({ signal }) => api.get<DashboardActivityItem[]>("/dashboard/activity?limit=15", true, signal),
   });
   const projectsFilter = useQuery({
     queryKey: ["projects-admin"],
-    queryFn: () => api.get<Project[]>("/projects"),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects", false, signal),
   });
   const advisorsFilter = useQuery({
     queryKey: ["advisors"],
-    queryFn: () => api.get<Advisor[]>("/advisors"),
+    queryFn: ({ signal }) => api.get<Advisor[]>("/advisors", false, signal),
   });
 
   const refresh = async () => {

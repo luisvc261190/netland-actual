@@ -7,7 +7,7 @@ import { API_URL } from "../../../lib/constants";
 import { PageHeader, Button, Card, Badge, Table, Field, Select, Input, Pagination } from "../../admin/ui";
 import { CoreSpinLoader } from "../../../components/ui/CoreSpinLoader";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import type { Project } from "../../../types";
+import type { Project, Advisor } from "../../../types";
 import NewSaleModal from "../components/NewSaleModal";
 import { PAYMENT_MODALITIES, CONTRACT_STATUS, COLLECTION_STATUS, COLLECTION_STATUS_COLORS, formatSoles } from "../constants";
 
@@ -20,6 +20,8 @@ export interface SaleItem {
   owner_document: string;
   owner_phone: string;
   project_name: string;
+  advisor_id?: number | null;
+  advisor_name?: string | null;
   block_code?: string | null;
   lot_code: string;
   lot_area_m2: number;
@@ -50,6 +52,7 @@ export default function SalesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [projectId, setProjectId] = useState<number | "">("");
+  const [advisorId, setAdvisorId] = useState<number | "">("");
   const [status, setStatus] = useState("");
   const [modality, setModality] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
@@ -58,19 +61,25 @@ export default function SalesPage() {
 
   const { data: projects } = useQuery({
     queryKey: ["projects-admin"],
-    queryFn: () => api.get<Project[]>("/projects", true),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects", true, signal),
+  });
+
+  const { data: advisors } = useQuery({
+    queryKey: ["advisors-sales"],
+    queryFn: ({ signal }) => api.get<Advisor[]>("/advisors", true, signal),
   });
 
   const { data: items, isLoading } = useQuery({
-    queryKey: ["sales", projectId, status, modality, paymentStatus, search],
-    queryFn: () => {
+    queryKey: ["sales", projectId, advisorId, status, modality, paymentStatus, search],
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams();
       if (projectId) params.append("project_id", projectId.toString());
+      if (advisorId) params.append("advisor_id", advisorId.toString());
       if (status) params.append("status", status);
       if (modality) params.append("payment_modality", modality);
       if (paymentStatus) params.append("payment_status", paymentStatus);
       if (search) params.append("search", search);
-      return api.get<SaleItem[]>(`/sales?${params.toString()}`, true);
+      return api.get<SaleItem[]>(`/sales?${params.toString()}`, true, signal);
     },
   });
 
@@ -113,12 +122,20 @@ export default function SalesPage() {
       />
 
       <Card className="mb-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
           <Field label="Proyecto">
             <Select value={projectId} onChange={(e) => { setProjectId(e.target.value ? Number(e.target.value) : ""); setPage(1); }}>
               <option value="">Todos</option>
               {projects?.map((p) => (
                 <option key={p.id} value={p.id}>{p.short_name}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Asesor">
+            <Select value={advisorId} onChange={(e) => { setAdvisorId(e.target.value ? Number(e.target.value) : ""); setPage(1); }}>
+              <option value="">Todos</option>
+              {advisors?.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </Select>
           </Field>
@@ -180,7 +197,7 @@ export default function SalesPage() {
         <>
           <Table
             headers={[
-              "Contrato", "Cliente", "Proyecto", "Lote", "Modalidad",
+              "Contrato", "Cliente", "Proyecto", "Asesor", "Lote", "Modalidad",
               "Precio", "Pagado", "Pendiente", "Pago", "Cobranza", "Acciones",
             ]}
           >
@@ -194,6 +211,16 @@ export default function SalesPage() {
                   </div>
                 </td>
                 <td className="px-5 py-3 text-netland-muted">{item.project_name}</td>
+                <td className="px-5 py-3">
+                  {item.advisor_name ? (
+                    <div>
+                      <p className="font-medium text-netland-dark">{item.advisor_name}</p>
+                      {item.advisor_id && <p className="text-xs text-netland-muted">Asesor</p>}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-netland-muted">Sin asesor</span>
+                  )}
+                </td>
                 <td className="px-5 py-3 font-medium">
                   {item.block_code ? `${item.block_code} - ` : ""}{item.lot_code}
                 </td>

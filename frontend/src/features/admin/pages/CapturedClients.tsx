@@ -132,21 +132,22 @@ export default function AdminCapturedClients() {
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ["captured-clients"],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<Lead[]>(
         `/leads?source=${SOURCES_QUERY}`,
-        true
+        true,
+        signal
       ),
   });
 
   const { data: projects } = useQuery({
     queryKey: ["projects-list"],
-    queryFn: () => api.get<Project[]>("/projects"),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects", false, signal),
   });
 
   const { data: advisors } = useQuery({
     queryKey: ["advisors-public"],
-    queryFn: () => api.get<Advisor[]>("/advisors"),
+    queryFn: ({ signal }) => api.get<Advisor[]>("/advisors", false, signal),
   });
 
   // =========================

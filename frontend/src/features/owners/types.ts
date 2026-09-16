@@ -92,6 +92,9 @@ export interface ContractDetail extends Contract {
   total_paid: number;
   outstanding_balance: number;
   overdue_amount: number;
+  esquina_surcharge?: number;
+  frente_parque_surcharge?: number;
+  frente_a_pista_surcharge?: number;
 }
 
 export interface CashPayment {

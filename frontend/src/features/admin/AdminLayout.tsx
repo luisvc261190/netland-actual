@@ -2,8 +2,10 @@ import { useState } from "react";
 import { NavLink, Navigate, Outlet } from "react-router-dom";
 import {
   BadgePercent,
+  Banknote,
   CalendarDays,
   ClipboardList,
+  Coins,
   Database,
   FileText,
   FolderKanban,
@@ -13,6 +15,7 @@ import {
   Menu,
   MessageSquare,
   Milestone,
+  Percent,
   Quote as QuoteIcon,
   Settings,
   Users,
@@ -118,6 +121,27 @@ const navItems = [
     label: "Cobranzas",
     icon: DollarSign,
     roles: ["SUPER_ADMIN", "ADMIN", "COBRANZAS", "SUPERVISOR"],
+  },
+  {
+    section: "Comisiones",
+    to: "/admin/comisiones",
+    label: "Comisiones",
+    icon: Coins,
+    roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    section: "Comisiones",
+    to: "/admin/mensualidades",
+    label: "Mensualidades",
+    icon: Banknote,
+    roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    section: "Comisiones",
+    to: "/admin/comisiones/porcentajes",
+    label: "Porcentajes de comisión",
+    icon: Percent,
+    roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
     section: "Marketing",

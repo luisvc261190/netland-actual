@@ -209,6 +209,9 @@ class ContractDetail(ContractResponse):
     total_paid: Decimal = Decimal("0.00")
     outstanding_balance: Decimal = Decimal("0.00")
     overdue_amount: Decimal = Decimal("0.00")
+    esquina_surcharge: Decimal = Decimal("0.00")
+    frente_parque_surcharge: Decimal = Decimal("0.00")
+    frente_a_pista_surcharge: Decimal = Decimal("0.00")
 
 
 # ============================================================================
@@ -407,6 +410,8 @@ class SaleItem(BaseModel):
     owner_document: str
     owner_phone: str
     project_name: str
+    advisor_id: Optional[int] = None
+    advisor_name: Optional[str] = None
     block_code: Optional[str] = None
     lot_code: str
     lot_area_m2: float = 0

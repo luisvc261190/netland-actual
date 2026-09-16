@@ -122,6 +122,61 @@ export interface Advisor {
   is_available: boolean;
   bio: string;
   sort_order: number;
+  document_type: string;
+  document_number: string;
+  bank_name: string;
+  account_number: string;
+  is_external: boolean;
+  base_salary: number | null;
+  deleted_at: string | null;
+}
+
+export type CommissionPaymentType = "comision" | "mensualidad";
+export type CommissionPaymentStatus = "pendiente" | "parcial" | "pagado" | "anulado";
+export type CommissionPaymentOrigin = "auto" | "manual";
+
+export interface AdvisorCommission {
+  id: number;
+  advisor_id: number;
+  project_id: number;
+  advisor_name: string;
+  project_name: string;
+  commission_percent: number;
+  is_active: boolean;
+  deleted_at: string | null;
+}
+
+export interface CommissionPayment {
+  id: number;
+  payment_type: CommissionPaymentType;
+  advisor_id: number | null;
+  project_id: number | null;
+  contract_id: number | null;
+  contract_number: string | null;
+  project_name: string | null;
+  percent_applied: number | null;
+  base_amount: number | null;
+  amount: number;
+  amount_paid: number;
+  balance: number;
+  origin: CommissionPaymentOrigin;
+  concept: string;
+  payment_period: string | null;
+  advisor_name: string;
+  advisor_is_external: boolean;
+  document_type: string;
+  document_number: string;
+  bank_name: string;
+  account_number: string;
+  payment_status: CommissionPaymentStatus;
+  payment_date: string | null;
+  payment_method: string | null;
+  transaction_number: string | null;
+  notes: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface ClientInfo {

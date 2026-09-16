@@ -59,19 +59,19 @@ export default function PlanEditor() {
 
   const { data: project } = useQuery({
     queryKey: ["project", projectId],
-    queryFn: () => api.get<Project>(`/projects/${projectId}`),
+    queryFn: ({ signal }) => api.get<Project>(`/projects/${projectId}`, false, signal),
     enabled: !!projectId,
   });
 
   const { data: lots = [], isLoading } = useQuery({
     queryKey: ["admin-plan-lots", projectId],
-    queryFn: () => api.get<Lot[]>(`/projects/${projectId}/lots`),
+    queryFn: ({ signal }) => api.get<Lot[]>(`/projects/${projectId}/lots`, false, signal),
     enabled: !!projectId,
   });
 
   const { data: blocks = [] } = useQuery({
     queryKey: ["admin-blocks", projectId],
-    queryFn: () => api.get<Block[]>(`/projects/${projectId}/blocks`),
+    queryFn: ({ signal }) => api.get<Block[]>(`/projects/${projectId}/blocks`, false, signal),
     enabled: !!projectId,
   });
 

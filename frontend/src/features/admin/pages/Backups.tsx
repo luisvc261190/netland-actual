@@ -60,7 +60,7 @@ export default function AdminBackups() {
 
   const { data: backups } = useQuery({
     queryKey: ["backups-admin"],
-    queryFn: () => api.get<Backup[]>("/backups", true),
+    queryFn: ({ signal }) => api.get<Backup[]>("/backups", true, signal),
   });
 
   const createMutation = useMutation({

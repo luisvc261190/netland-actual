@@ -20,12 +20,12 @@ export default function AdminUsers() {
 
   const { data: users } = useQuery({
     queryKey: ["users-admin"],
-    queryFn: () => api.get<User[]>("/users", true),
+    queryFn: ({ signal }) => api.get<User[]>("/users", true, signal),
   });
 
   const { data: availableAdvisors } = useQuery({
     queryKey: ["available-advisors"],
-    queryFn: () => api.get<Advisor[]>("/users/available-advisors", true),
+    queryFn: ({ signal }) => api.get<Advisor[]>("/users/available-advisors", true, signal),
     enabled: modalOpen && !editing && form.role === "ASESOR",
   });
 

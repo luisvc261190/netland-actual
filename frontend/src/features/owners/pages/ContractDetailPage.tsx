@@ -119,36 +119,37 @@ export default function ContractDetailPage() {
   // Detalle del contrato
   const { data: contract, isLoading } = useQuery({
     queryKey: ["contract", contractId],
-    queryFn: () => api.get<ContractDetail>(`/contracts/${contractId}`, true),
+    queryFn: ({ signal }) => api.get<ContractDetail>(`/contracts/${contractId}`, true, signal),
     enabled: !!contractId,
   });
 
   const { data: documents } = useQuery({
     queryKey: ["contract-documents", contractId],
-    queryFn: () => api.get<ContractDocument[]>(`/contracts/${contractId}/documents`, true),
+    queryFn: ({ signal }) => api.get<ContractDocument[]>(`/contracts/${contractId}/documents`, true, signal),
     enabled: !!contractId,
   });
 
   const { data: financing } = useQuery({
     queryKey: ["contract-financing", contractId],
-    queryFn: () =>
-      api.get<FinancingPlanDetail>(`/contracts/${contractId}/financing`, true),
+    queryFn: ({ signal }) =>
+      api.get<FinancingPlanDetail>(`/contracts/${contractId}/financing`, true, signal),
     enabled: !!contractId && contract?.payment_modality === "financiado",
   });
 
   const { data: schedule } = useQuery({
     queryKey: ["contract-schedule", contractId],
-    queryFn: () =>
-      api.get<Installment[]>(`/contracts/${contractId}/schedule`, true),
+    queryFn: ({ signal }) =>
+      api.get<Installment[]>(`/contracts/${contractId}/schedule`, true, signal),
     enabled: !!contractId && contract?.payment_modality === "financiado",
   });
 
   const { data: payments } = useQuery({
     queryKey: ["contract-payments", contractId],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<Array<Payment & { created_at: string }>>(
         `/payments/history/${contractId}`,
-        true
+        true,
+        signal
       ),
     enabled: !!contractId,
   });
@@ -570,6 +571,26 @@ export default function ContractDetailPage() {
             <InfoItem label="Lote" value={`${contract.block_code ? `${contract.block_code} - ` : ""}${contract.lot_code}`} />
             <InfoItem label="Área" value={`${contract.lot_area_m2} m²`} />
             <InfoItem label="Precio por m²" value={formatSoles(contract.price_per_m2)} />
+            <InfoItem
+              label="Recargos"
+              value={
+                <span>
+                  {[
+                    contract.esquina_surcharge
+                      ? `Esquina: +${formatSoles(contract.esquina_surcharge)}`
+                      : null,
+                    contract.frente_parque_surcharge
+                      ? `Frente a parque: +${formatSoles(contract.frente_parque_surcharge)}`
+                      : null,
+                    contract.frente_a_pista_surcharge
+                      ? `Frente a pista: +${formatSoles(contract.frente_a_pista_surcharge)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Sin recargos"}
+                </span>
+              }
+            />
             <InfoItem label="Modalidad" value={PAYMENT_MODALITIES[contract.payment_modality]} />
             <InfoItem label="Fecha de contrato" value={formatDate(contract.contract_date)} />
             <InfoItem label="Estado" value={<Badge color={CONTRACT_STATUS_COLORS[contract.status]}>{CONTRACT_STATUS[contract.status]}</Badge>} />

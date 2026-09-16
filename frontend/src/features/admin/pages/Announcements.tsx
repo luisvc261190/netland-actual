@@ -93,7 +93,7 @@ export default function AdminAnnouncements() {
 
   const { data: announcements } = useQuery({
     queryKey: ["announcements-admin"],
-    queryFn: () => api.get<Announcement[]>("/announcements", true),
+    queryFn: ({ signal }) => api.get<Announcement[]>("/announcements", true, signal),
   });
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>

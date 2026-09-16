@@ -37,6 +37,12 @@ from app.domain.owners_models import (
     ImportError,
 )
 
+# Importar modelos del módulo de comisiones y planillas
+from app.domain.commission_models import (  # noqa: F401
+    AdvisorCommission,
+    CommissionPayment,
+)
+
 
 class Role(str, Enum):
     SUPER_ADMIN = "SUPER_ADMIN"
@@ -286,6 +292,17 @@ class Advisor(Base):
     is_available = Column(Boolean, default=True)
     bio = Column(Text, default="")
     sort_order = Column(Integer, default=0)
+    # Datos de identidad y pago (módulo de comisiones)
+    document_type = Column(String(20), default="DNI", nullable=False)  # DNI | CE | RUC | PASAPORTE | OTRO
+    document_number = Column(String(30), default="", nullable=False)
+    bank_name = Column(String(100), default="", nullable=False)
+    account_number = Column(String(60), default="", nullable=False)
+    # Asesor externo (independiente que factura/deposite a su cuenta)
+    is_external = Column(Boolean, default=False, nullable=False)
+    # Sueldo base mensual del asesor
+    base_salary = Column(Numeric(12, 2), nullable=True)
+    # Eliminación lógica
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="advisor")

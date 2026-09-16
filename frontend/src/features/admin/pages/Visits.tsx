@@ -24,12 +24,12 @@ export default function AdminVisits() {
 
   const { data: visits } = useQuery({
     queryKey: ["visits-admin"],
-    queryFn: () => api.get<Visit[]>("/visits", true),
+    queryFn: ({ signal }) => api.get<Visit[]>("/visits", true, signal),
   });
 
   const { data: leads } = useQuery({
     queryKey: ["leads-all"],
-    queryFn: () => api.get<any[]>("/leads", true),
+    queryFn: ({ signal }) => api.get<any[]>("/leads", true, signal),
   });
 
   const createMutation = useMutation({

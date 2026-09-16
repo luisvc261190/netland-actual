@@ -610,10 +610,17 @@ def list_clients(
 # ---- Advisors ----
 
 @router.get("/advisors", response_model=list[AdvisorOut])
-def list_advisors(db: Session = Depends(get_db)):
+def list_advisors(
+    include_deleted: bool = False,
+    db: Session = Depends(get_db),
+):
+    """Lista asesores. Por defecto excluye los eliminados (borrado lógico)."""
+    query = db.query(Advisor)
+    if not include_deleted:
+        query = query.filter(Advisor.deleted_at.is_(None))
     return [
         AdvisorOut.model_validate(a)
-        for a in db.query(Advisor).order_by(Advisor.created_at.desc()).all()
+        for a in query.order_by(Advisor.created_at.desc()).all()
     ]
 
 
@@ -629,7 +636,7 @@ def create_advisor(payload: AdvisorCreate, db: Session = Depends(get_db)):
 @router.put("/advisors/{advisor_id}", response_model=AdvisorOut, dependencies=[Depends(require_admin)])
 def update_advisor(advisor_id: int, payload: AdvisorUpdate, db: Session = Depends(get_db)):
     advisor = db.get(Advisor, advisor_id)
-    if not advisor:
+    if not advisor or advisor.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Asesor no encontrado.")
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(advisor, key, value)
@@ -640,11 +647,25 @@ def update_advisor(advisor_id: int, payload: AdvisorUpdate, db: Session = Depend
 
 @router.delete("/advisors/{advisor_id}", status_code=204, dependencies=[Depends(require_admin)])
 def delete_advisor(advisor_id: int, db: Session = Depends(get_db)):
+    """Eliminación lógica: conserva la integridad de leads/contratos históricos."""
+    from datetime import datetime as _datetime
+
+    advisor = db.get(Advisor, advisor_id)
+    if not advisor or advisor.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Asesor no encontrado.")
+    advisor.deleted_at = _datetime.utcnow()
+    db.commit()
+
+
+@router.post("/advisors/{advisor_id}/restore", response_model=AdvisorOut, dependencies=[Depends(require_admin)])
+def restore_advisor(advisor_id: int, db: Session = Depends(get_db)):
     advisor = db.get(Advisor, advisor_id)
     if not advisor:
         raise HTTPException(status_code=404, detail="Asesor no encontrado.")
-    db.delete(advisor)
+    advisor.deleted_at = None
     db.commit()
+    db.refresh(advisor)
+    return AdvisorOut.model_validate(advisor)
 
 
 # ---- Visits ----

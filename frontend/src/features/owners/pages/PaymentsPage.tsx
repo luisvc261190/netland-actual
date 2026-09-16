@@ -57,17 +57,17 @@ export default function PaymentsPage() {
     isLoading,
   } = useQuery({
     queryKey: ["payments", search],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams();
       if (search) params.append("search", search);
-      return api.get<any[]>(`/payments?${params.toString()}`, true);
+      return api.get<any[]>(`/payments?${params.toString()}`, true, signal);
     },
   });
 
   // Fetch active contracts for dropdown
   const { data: contracts } = useQuery({
     queryKey: ["contracts-active"],
-    queryFn: () => api.get<Contract[]>("/contracts?status=activo", true),
+    queryFn: ({ signal }) => api.get<Contract[]>("/contracts?status=activo", true, signal),
   });
 
   // Save mutation

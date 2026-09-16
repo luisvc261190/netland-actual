@@ -63,14 +63,14 @@ async function request<T>(
 }
 
 export const api = {
-  get: <T>(path: string, authenticated = false) =>
-    request<T>(path, { method: "GET" }, authenticated),
-  post: <T>(path: string, body: unknown, authenticated = false) =>
-    request<T>(path, { method: "POST", body: JSON.stringify(body) }, authenticated),
-  put: <T>(path: string, body: unknown, authenticated = false) =>
-    request<T>(path, { method: "PUT", body: JSON.stringify(body) }, authenticated),
-  patch: <T>(path: string, body: unknown, authenticated = false) =>
-    request<T>(path, { method: "PATCH", body: JSON.stringify(body) }, authenticated),
-  del: <T>(path: string, authenticated = false) =>
-    request<T>(path, { method: "DELETE" }, authenticated),
+  get: <T>(path: string, authenticated = false, signal?: AbortSignal) =>
+    request<T>(path, { method: "GET", signal }, authenticated),
+  post: <T>(path: string, body: unknown, authenticated = false, signal?: AbortSignal) =>
+    request<T>(path, { method: "POST", body: JSON.stringify(body), signal }, authenticated),
+  put: <T>(path: string, body: unknown, authenticated = false, signal?: AbortSignal) =>
+    request<T>(path, { method: "PUT", body: JSON.stringify(body), signal }, authenticated),
+  patch: <T>(path: string, body: unknown, authenticated = false, signal?: AbortSignal) =>
+    request<T>(path, { method: "PATCH", body: JSON.stringify(body), signal }, authenticated),
+  del: <T>(path: string, authenticated = false, signal?: AbortSignal) =>
+    request<T>(path, { method: "DELETE", signal }, authenticated),
 };

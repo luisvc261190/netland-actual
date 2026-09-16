@@ -66,7 +66,7 @@ export default function AdminLots() {
 
   const { data: projects } = useQuery({
     queryKey: ["projects-admin"],
-    queryFn: () => api.get<Project[]>("/projects"),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects", false, signal),
   });
 
   const selectedProject = projectId || projects?.[0]?.id;
@@ -78,7 +78,7 @@ export default function AdminLots() {
     refetch,
   } = useQuery({
     queryKey: ["admin-lots", selectedProject],
-    queryFn: () => api.get<Lot[]>(`/projects/${selectedProject}/lots`),
+    queryFn: ({ signal }) => api.get<Lot[]>(`/projects/${selectedProject}/lots`, false, signal),
     enabled: !!selectedProject,
   });
 
@@ -109,7 +109,7 @@ export default function AdminLots() {
 
   const { data: blocks } = useQuery({
     queryKey: ["admin-blocks", selectedProject],
-    queryFn: () => api.get<Block[]>(`/projects/${selectedProject}/blocks`),
+    queryFn: ({ signal }) => api.get<Block[]>(`/projects/${selectedProject}/blocks`, false, signal),
     enabled: !!selectedProject,
   });
 

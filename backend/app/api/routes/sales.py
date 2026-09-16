@@ -117,6 +117,11 @@ def create_sale(
     if vouchers_processed > 0:
         response["vouchers_uploaded"] = vouchers_processed
     
+    commission = getattr(contract, "generated_commission", None)
+    if commission is not None:
+        response["commission_id"] = commission.id
+        response["commission_amount"] = float(commission.amount)
+    
     return response
 
 
@@ -125,6 +130,7 @@ def list_sales(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     project_id: Optional[int] = Query(None, description="Filtrar por proyecto"),
+    advisor_id: Optional[int] = Query(None, description="Filtrar por asesor"),
     status: Optional[str] = Query(None, description="Estado del contrato: activo | cancelado | resuelto | anulado"),
     payment_modality: Optional[str] = Query(None, description="contado | financiado"),
     payment_status: Optional[str] = Query(None, description="pendiente | parcial | pagado"),
@@ -136,6 +142,8 @@ def list_sales(
     filters = {}
     if project_id:
         filters["project_id"] = project_id
+    if advisor_id:
+        filters["advisor_id"] = advisor_id
     if status:
         filters["status"] = status
     if payment_modality:

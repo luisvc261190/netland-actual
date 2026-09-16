@@ -14,7 +14,7 @@ const HERO_IMAGE =
 export default function Projects() {
   const { data: projects, isLoading } = useQuery({
     queryKey: ["projects"],
-    queryFn: () => api.get<Project[]>("/projects?published_only=true"),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects?published_only=true", false, signal),
   });
 
   usePageMeta({

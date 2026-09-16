@@ -45,26 +45,26 @@ export default function OwnerDetailPage() {
   // Datos del propietario
   const { data: owner, isLoading } = useQuery({
     queryKey: ["owner", ownerId],
-    queryFn: () => api.get<OwnerDetail>(`/owners/${ownerId}`, true),
+    queryFn: ({ signal }) => api.get<OwnerDetail>(`/owners/${ownerId}`, true, signal),
     enabled: !!ownerId,
   });
 
   // Contratos del propietario (lista compacta)
   const { data: contracts } = useQuery({
     queryKey: ["owner-contracts", ownerId],
-    queryFn: () => api.get<Contract[]>(`/contracts?owner_id=${ownerId}`, true),
+    queryFn: ({ signal }) => api.get<Contract[]>(`/contracts?owner_id=${ownerId}`, true, signal),
     enabled: !!ownerId,
   });
 
   // Detalles completos de cada contrato activo
   const { data: contractDetails } = useQuery({
     queryKey: ["owner-contract-details", ownerId, contracts],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const list = contracts || [];
       const active = list.filter((c) => c.status === "activo");
       const results = await Promise.all(
         active.map((c) =>
-          api.get<ContractDetail>(`/contracts/${c.id}`, true)
+          api.get<ContractDetail>(`/contracts/${c.id}`, true, signal)
         )
       );
       return results;
@@ -281,17 +281,18 @@ function ContractSection({
 }) {
   const { data: schedule } = useQuery({
     queryKey: ["contract-schedule", contract.id],
-    queryFn: () =>
-      api.get<Installment[]>(`/contracts/${contract.id}/schedule`, true),
+    queryFn: ({ signal }) =>
+      api.get<Installment[]>(`/contracts/${contract.id}/schedule`, true, signal),
     enabled: !!contract.id,
   });
 
   const { data: payments } = useQuery({
     queryKey: ["contract-payments", contract.id],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<Array<Payment & { created_at: string }>>(
         `/payments/history/${contract.id}`,
-        true
+        true,
+        signal
       ),
     enabled: !!contract.id,
   });

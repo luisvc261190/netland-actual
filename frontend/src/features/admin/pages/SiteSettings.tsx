@@ -75,7 +75,7 @@ export default function SiteSettings() {
 
   const { data: config, isLoading } = useQuery<SiteConfig>({
     queryKey: ["admin-config"],
-    queryFn: () => api.get("/config", true),
+    queryFn: ({ signal }) => api.get("/config", true, signal),
   });
 
   const [formData, setFormData] = useState<SiteConfig>({ ...DEFAULT_COMPANY });

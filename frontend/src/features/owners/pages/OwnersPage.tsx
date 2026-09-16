@@ -83,17 +83,17 @@ export default function OwnersPage() {
     isLoading,
   } = useQuery({
     queryKey: ["owners", search],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const params = new URLSearchParams();
       if (search) params.append("search", search);
-      return api.get<OwnerWithClient[]>(`/owners?${params.toString()}`, true);
+      return api.get<OwnerWithClient[]>(`/owners?${params.toString()}`, true, signal);
     },
   });
 
   // Fetch clients for dropdown
   const { data: clients } = useQuery({
     queryKey: ["clients"],
-    queryFn: () => api.get<Client[]>("/clients", true),
+    queryFn: ({ signal }) => api.get<Client[]>("/clients", true, signal),
   });
 
   // Save mutation

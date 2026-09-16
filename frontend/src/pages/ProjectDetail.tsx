@@ -43,31 +43,31 @@ export default function ProjectDetail() {
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", slug],
-    queryFn: () => api.get<Project>(`/projects/${slug}`),
+    queryFn: ({ signal }) => api.get<Project>(`/projects/${slug}`, false, signal),
     enabled: !!slug,
   });
 
   const { data: lots = [] } = useQuery({
     queryKey: ["project-lots", project?.id],
-    queryFn: () => api.get<Lot[]>(`/projects/${project!.id}/lots`),
+    queryFn: ({ signal }) => api.get<Lot[]>(`/projects/${project!.id}/lots`, false, signal),
     enabled: !!project,
   });
 
   const { data: gallery = [] } = useQuery({
     queryKey: ["project-gallery", project?.id],
-    queryFn: () => api.get<GalleryItem[]>(`/projects/${project!.id}/gallery`),
+    queryFn: ({ signal }) => api.get<GalleryItem[]>(`/projects/${project!.id}/gallery`, false, signal),
     enabled: !!project,
   });
 
   const { data: videos = [] } = useQuery({
     queryKey: ["project-videos", project?.id],
-    queryFn: () => api.get<ProjectVideo[]>(`/projects/${project!.id}/videos`),
+    queryFn: ({ signal }) => api.get<ProjectVideo[]>(`/projects/${project!.id}/videos`, false, signal),
     enabled: !!project,
   });
 
   const { data: documents = [] } = useQuery({
     queryKey: ["project-documents", project?.id],
-    queryFn: () => api.get<ProjectDocument[]>(`/projects/${project!.id}/documents`),
+    queryFn: ({ signal }) => api.get<ProjectDocument[]>(`/projects/${project!.id}/documents`, false, signal),
     enabled: !!project,
   });
 

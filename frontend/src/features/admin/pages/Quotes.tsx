@@ -93,8 +93,8 @@ export default function AdminQuotes() {
 
   const { data: quotes, isLoading } = useQuery({
     queryKey: ["quotes-admin"],
-    queryFn: () =>
-      api.get<Quote[]>("/quotes", true),
+    queryFn: ({ signal }) =>
+      api.get<Quote[]>("/quotes", true, signal),
   });
 
   const totalQuotes = quotes?.length ?? 0;
@@ -593,10 +593,11 @@ function CreateQuoteModal({
 
   const { data: projects } = useQuery({
     queryKey: ["projects-for-quote"],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<Project[]>(
         "/projects",
-        false
+        false,
+        signal
       ),
   });
 
@@ -605,20 +606,22 @@ function CreateQuoteModal({
       "lots-for-quote",
       selectedProjectId,
     ],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<Lot[]>(
         `/projects/${selectedProjectId}/lots`,
-        true
+        true,
+        signal
       ),
     enabled: !!selectedProjectId,
   });
 
   const { data: leads } = useQuery({
     queryKey: ["leads-for-quote"],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.get<Lead[]>(
         "/leads",
-        true
+        true,
+        signal
       ),
   });
 

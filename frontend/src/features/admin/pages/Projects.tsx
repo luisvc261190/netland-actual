@@ -72,7 +72,7 @@ export default function AdminProjects() {
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ["projects-admin"],
-    queryFn: () => api.get<Project[]>("/projects"),
+    queryFn: ({ signal }) => api.get<Project[]>("/projects", false, signal),
   });
 
   const deleteMutation = useMutation({
