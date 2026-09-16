@@ -30,13 +30,23 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 ADMIN_ROLES = ("SUPER_ADMIN", "ADMIN")
 
+# Roles que ven TODA la operación del dashboard (no se limitan a su asesor).
+# ASESOR queda fuera: sus datos se filtran por advisor_id.
+GLOBAL_DASHBOARD_ROLES = ADMIN_ROLES + ("VENTAS", "COBRANZAS", "SUPERVISOR")
+
 ACTIVE_CONTRACT = "activo"
 CANCELLED_CONTRACT_STATUSES = ("cancelado", "resuelto", "anulado")
 PAID_INSTALLMENT_STATUSES = ("pagada", "anulada")
 
 
 def _is_admin(user: User) -> bool:
+    """Rol con privilegios de administración (métricas de gestión)."""
     return bool(user.role and user.role.name in ADMIN_ROLES)
+
+
+def _has_global_scope(user: User) -> bool:
+    """El usuario ve la información global del dashboard (no solo la suya)."""
+    return bool(user.role and user.role.name in GLOBAL_DASHBOARD_ROLES)
 
 
 def _f(value) -> float:
@@ -64,9 +74,9 @@ def _apply_project(q, model, project_id):
     return q
 
 
-def _contracts_query(db, is_admin, advisor_id, project_id):
+def _contracts_query(db, global_scope, advisor_id, project_id):
     q = db.query(Contract)
-    if not is_admin:
+    if not global_scope:
         q = q.filter(Contract.advisor_id == advisor_id)
     q = _apply_project(q, Contract, project_id)
     return q.filter(Contract.status != "anulado")
@@ -147,17 +157,18 @@ def dashboard_stats(
 ):
     """Métricas del panel.
 
-    - ADMIN / SUPER_ADMIN: ve totales globales.
+    - Roles con visibilidad global: ven totales globales.
     - ASESOR: ve sus propias métricas (sus clientes captados, visitas y cotizaciones).
       Los datos de proyectos y lotes son globales porque ya tiene acceso a ellos.
     """
     is_admin = _is_admin(current_user)
-    advisor = None if is_admin else current_user.advisor
+    global_scope = _has_global_scope(current_user)
+    advisor = None if global_scope else current_user.advisor
     advisor_id = advisor.id if advisor else -1
 
     def _leads_query():
         q = db.query(Lead)
-        if not is_admin:
+        if not global_scope:
             q = q.filter(Lead.advisor_id == advisor_id)
         return q
 
@@ -178,7 +189,7 @@ def dashboard_stats(
 
     visits_count = db.query(func.count(Visit.id))
     quotes_count = db.query(func.count(Quote.id))
-    if not is_admin:
+    if not global_scope:
         visits_count = visits_count.filter(Visit.advisor_id == advisor_id)
         quotes_count = quotes_count.filter(Quote.advisor_id == advisor_id)
 
@@ -270,19 +281,18 @@ def dashboard_summary(
 ):
     """Resumen central del dashboard con KPIs, agrupado y filtrable por período/proyecto/asesor.
 
-    - ADMIN / SUPER_ADMIN: ve totales globales (o filtrados).
+    - Roles con visibilidad global: ven totales globales (o filtrados por proyecto).
     - ASESOR: solo sus registros; proyectos y lotes son globales.
     """
-    is_admin = _is_admin(current_user)
-    scoped_advisor = None if is_admin else _advisor_id_for(current_user)
-    effective_advisor = None if is_admin else scoped_advisor
-    if not is_admin:
+    global_scope = _has_global_scope(current_user)
+    scoped_advisor = None if global_scope else _advisor_id_for(current_user)
+    if not global_scope:
         advisor_id = scoped_advisor
 
     start, end, prev_start, prev_end = _date_window(period, date_from, date_to)
 
     def _contracts():
-        return _contracts_query(db, is_admin, scoped_advisor, project_id)
+        return _contracts_query(db, global_scope, scoped_advisor, project_id)
 
     def _contracts_in(start_d, end_d):
         q = _contracts()
@@ -322,7 +332,7 @@ def dashboard_summary(
         .join(Contract, Contract.id == Payment.contract_id)
         .filter(Payment.is_cancelled.is_(False))
     )
-    if not is_admin:
+    if not global_scope:
         payment_q = payment_q.filter(Contract.advisor_id == scoped_advisor)
     if project_id:
         payment_q = payment_q.filter(Contract.project_id == project_id)
@@ -352,7 +362,7 @@ def dashboard_summary(
         q = q.filter(
             Contract.status == ACTIVE_CONTRACT, Contract.status != "anulado"
         )
-        if not is_admin:
+        if not global_scope:
             q = q.filter(Contract.advisor_id == scoped_advisor)
         if project_id:
             q = q.filter(Contract.project_id == project_id)
@@ -376,7 +386,7 @@ def dashboard_summary(
         .join(Contract, FinancingPlan.contract_id == Contract.id)
         .filter(Installment.status == "vencida", Contract.status != "anulado")
     )
-    if not is_admin:
+    if not global_scope:
         overdue_q = overdue_q.filter(Contract.advisor_id == scoped_advisor)
     if project_id:
         overdue_q = overdue_q.filter(Contract.project_id == project_id)
@@ -385,7 +395,7 @@ def dashboard_summary(
     # --- Clientes y leads ---
     def _clients_base():
         q = db.query(Client).join(Lead, Lead.client_id == Client.id)
-        if not is_admin:
+        if not global_scope:
             q = q.filter(Lead.advisor_id == scoped_advisor)
         if project_id:
             q = q.filter(Lead.project_id == project_id)
@@ -408,7 +418,7 @@ def dashboard_summary(
         )
 
     leads_q = db.query(Lead)
-    if not is_admin:
+    if not global_scope:
         leads_q = leads_q.filter(Lead.advisor_id == scoped_advisor)
     leads_q = _apply_project(leads_q, Lead, project_id)
     leads_new_current = 0
@@ -422,7 +432,7 @@ def dashboard_summary(
 
     # --- Cotizaciones ---
     quotes_q = db.query(Quote)
-    if not is_admin:
+    if not global_scope:
         quotes_q = quotes_q.filter(Quote.advisor_id == scoped_advisor)
     quotes_q = _apply_project(quotes_q, Quote, project_id)
     quotes_total = quotes_q.count()
@@ -457,7 +467,7 @@ def dashboard_summary(
         .filter(Installment.status.notin_(PAID_INSTALLMENT_STATUSES))
         .filter(Installment.due_date >= date.today())
     )
-    if not is_admin:
+    if not global_scope:
         upcoming_q = upcoming_q.filter(Contract.advisor_id == scoped_advisor)
     if project_id:
         upcoming_q = upcoming_q.filter(Contract.project_id == project_id)
@@ -530,8 +540,8 @@ def dashboard_trend(
     db: Session = Depends(get_db),
 ):
     """Serie temporal de ventas, cobranza y saldos de cuotas por período."""
-    is_admin = _is_admin(current_user)
-    scoped_advisor = None if is_admin else _advisor_id_for(current_user)
+    global_scope = _has_global_scope(current_user)
+    scoped_advisor = None if global_scope else _advisor_id_for(current_user)
     today = date.today()
     mode, buckets, start = _trend_buckets(range_, today)
     end = today + timedelta(days=1)
@@ -542,7 +552,7 @@ def dashboard_trend(
     due_map = {}
 
     contract_rows = (
-        _contracts_query(db, is_admin, scoped_advisor, project_id)
+        _contracts_query(db, global_scope, scoped_advisor, project_id)
         .filter(
             Contract.contract_date >= start, Contract.contract_date < end
         )
@@ -563,7 +573,7 @@ def dashboard_trend(
             Payment.payment_date < end,
         )
     )
-    if not is_admin:
+    if not global_scope:
         payment_q = payment_q.filter(Contract.advisor_id == scoped_advisor)
     if project_id:
         payment_q = payment_q.filter(Contract.project_id == project_id)
@@ -584,7 +594,7 @@ def dashboard_trend(
             Installment.due_date < end,
         )
     )
-    if not is_admin:
+    if not global_scope:
         due_q = due_q.filter(Contract.advisor_id == scoped_advisor)
     if project_id:
         due_q = due_q.filter(Contract.project_id == project_id)
@@ -676,8 +686,8 @@ def dashboard_advisors(
     db: Session = Depends(get_db),
 ):
     """Ranking de asesores por ventas en el período seleccionado."""
-    is_admin = _is_admin(current_user)
-    scoped_advisor = None if is_admin else _advisor_id_for(current_user)
+    global_scope = _has_global_scope(current_user)
+    scoped_advisor = None if global_scope else _advisor_id_for(current_user)
     length = {"month": 30, "quarter": 90, "year": 365}[period]
     today = date.today()
     start = today - timedelta(days=length - 1)
@@ -685,7 +695,7 @@ def dashboard_advisors(
     end_dt = datetime.combine(today + timedelta(days=1), datetime.min.time())
 
     advisors = db.query(Advisor).order_by(Advisor.name).all()
-    if not is_admin:
+    if not global_scope:
         advisors = [adv for adv in advisors if adv.id == scoped_advisor]
 
     result = []
@@ -749,11 +759,11 @@ def dashboard_funnel(
     db: Session = Depends(get_db),
 ):
     """Embudo comercial a partir de estados reales de leads, visitas, cotizaciones y ventas."""
-    is_admin = _is_admin(current_user)
-    scoped_advisor = None if is_admin else _advisor_id_for(current_user)
+    global_scope = _has_global_scope(current_user)
+    scoped_advisor = None if global_scope else _advisor_id_for(current_user)
 
     leads_q = db.query(Lead)
-    if not is_admin:
+    if not global_scope:
         leads_q = leads_q.filter(Lead.advisor_id == scoped_advisor)
     leads_q = _apply_project(leads_q, Lead, project_id)
     status_counts = dict(
@@ -775,20 +785,20 @@ def dashboard_funnel(
     separated = stage("reserved", "sold")
 
     visits_q = db.query(func.count(Visit.id))
-    if not is_admin:
+    if not global_scope:
         visits_q = visits_q.filter(Visit.advisor_id == scoped_advisor)
     if project_id:
         visits_q = visits_q.filter(Visit.project_id == project_id)
     visits_total = visits_q.scalar() or 0
 
     quotes_q = db.query(func.count(Quote.id))
-    if not is_admin:
+    if not global_scope:
         quotes_q = quotes_q.filter(Quote.advisor_id == scoped_advisor)
     if project_id:
         quotes_q = quotes_q.filter(Quote.project_id == project_id)
     quotes_total = quotes_q.scalar() or 0
 
-    contracts_total = _contracts_query(db, is_admin, scoped_advisor, project_id).count()
+    contracts_total = _contracts_query(db, global_scope, scoped_advisor, project_id).count()
 
     stages = [
         {"stage": "Leads", "count": leads_total},
@@ -833,11 +843,11 @@ def dashboard_lead_sources(
     db: Session = Depends(get_db),
 ):
     """Distribución de leads por origen (fuente)."""
-    is_admin = _is_admin(current_user)
-    scoped_advisor = None if is_admin else _advisor_id_for(current_user)
+    global_scope = _has_global_scope(current_user)
+    scoped_advisor = None if global_scope else _advisor_id_for(current_user)
 
     leads_q = db.query(Lead)
-    if not is_admin:
+    if not global_scope:
         leads_q = leads_q.filter(Lead.advisor_id == scoped_advisor)
     leads_q = _apply_project(leads_q, Lead, project_id)
     if range_:
@@ -877,8 +887,8 @@ def dashboard_clients_trend(
     db: Session = Depends(get_db),
 ):
     """Evolución mensual (o diaria para 30d) de nuevos clientes y leads."""
-    is_admin = _is_admin(current_user)
-    scoped_advisor = None if is_admin else _advisor_id_for(current_user)
+    global_scope = _has_global_scope(current_user)
+    scoped_advisor = None if global_scope else _advisor_id_for(current_user)
     today = date.today()
     if range_ == "30d":
         mode, buckets, start = "day", [today - timedelta(days=29 - i) for i in range(30)], today - timedelta(days=29)
@@ -886,12 +896,12 @@ def dashboard_clients_trend(
         mode, buckets, start = _trend_buckets(range_, today)
     end = today + timedelta(days=1)
 
-    scoped = (not is_admin) or bool(project_id)
+    scoped = (not global_scope) or bool(project_id)
 
     client_map = {}
     if scoped:
         lead_q = db.query(Lead)
-        if not is_admin:
+        if not global_scope:
             lead_q = lead_q.filter(Lead.advisor_id == scoped_advisor)
         lead_q = _apply_project(lead_q, Lead, project_id)
         lead_rows = (

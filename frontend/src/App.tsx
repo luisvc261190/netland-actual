@@ -192,7 +192,7 @@ export default function App() {
             <Route
               path="usuarios"
               element={
-                <RequireRole roles={SUPER_ADMIN_ROLES}>
+                <RequireRole roles={ADMIN_ROLES}>
                   <AdminUsers />
                 </RequireRole>
               }

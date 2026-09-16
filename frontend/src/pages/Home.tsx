@@ -251,7 +251,6 @@ function Hero({ config }: { config?: SiteConfig }) {
                   src={slide.src}
                   alt={slide.alt}
                   className="h-full w-full object-cover"
-                  fetchPriority={i === 0 ? "high" : undefined}
                   loading={i === 0 ? "eager" : "lazy"}
                 />
               </div>

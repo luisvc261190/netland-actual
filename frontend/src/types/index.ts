@@ -258,6 +258,8 @@ export interface User {
   is_active: boolean;
   advisor_id?: number | null;
   advisor_name?: string | null;
+  user_quota?: number | null;
+  created_by?: number | null;
 }
 
 export interface Backup {

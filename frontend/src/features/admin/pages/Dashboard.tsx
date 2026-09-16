@@ -441,10 +441,125 @@ function scoreColors(position: number) {
   return { bg: "#f1f5f3", text: "#64736e", ring: "ring-netland-light" };
 }
 
+type DashboardSection =
+  | "ventas-kpis"
+  | "ingresos-kpis"
+  | "clientes-kpis"
+  | "lotes-kpis"
+  | "cotizaciones-kpis"
+  | "evolucion-ventas"
+  | "ventas-cobranza"
+  | "proyectos"
+  | "estado-lotes"
+  | "ranking-asesores"
+  | "embudo"
+  | "leads-origen"
+  | "nuevos-clientes"
+  | "cobranza-pagos"
+  | "actividad";
+
+/** Roles con visibilidad global (ven toda la operación, no solo su asesor). */
+const GLOBAL_SCOPE_ROLES = ["SUPER_ADMIN", "ADMIN", "VENTAS", "SUPERVISOR", "COBRANZAS"];
+
+/** Roles que pueden filtrar el dashboard por asesor. */
+const ADVISOR_FILTER_ROLES = ["SUPER_ADMIN", "ADMIN"];
+
+/** Pantalla completa de la operación (administradores). */
+const ALL_SECTIONS: readonly DashboardSection[] = [
+  "ventas-kpis",
+  "ingresos-kpis",
+  "clientes-kpis",
+  "lotes-kpis",
+  "cotizaciones-kpis",
+  "evolucion-ventas",
+  "ventas-cobranza",
+  "proyectos",
+  "estado-lotes",
+  "ranking-asesores",
+  "embudo",
+  "leads-origen",
+  "nuevos-clientes",
+  "cobranza-pagos",
+  "actividad",
+];
+
+/** Centro comercial: visión global de ventas, proyectos y clientes. */
+const VENTAS_SECTIONS: readonly DashboardSection[] = [
+  "ventas-kpis",
+  "ingresos-kpis",
+  "clientes-kpis",
+  "cotizaciones-kpis",
+  "lotes-kpis",
+  "evolucion-ventas",
+  "ventas-cobranza",
+  "proyectos",
+  "estado-lotes",
+  "ranking-asesores",
+  "embudo",
+  "leads-origen",
+  "nuevos-clientes",
+];
+
+/** Actividad personal del asesor (el backend filtra por su advisor_id). */
+const ASESOR_SECTIONS: readonly DashboardSection[] = [
+  "ventas-kpis",
+  "clientes-kpis",
+  "cotizaciones-kpis",
+  "lotes-kpis",
+  "evolucion-ventas",
+  "ventas-cobranza",
+  "estado-lotes",
+  "embudo",
+  "leads-origen",
+  "nuevos-clientes",
+
+];
+
+/** Supervisión comercial y de cobranza. */
+const SUPERVISOR_SECTIONS: readonly DashboardSection[] = [
+  "ventas-kpis",
+  "ingresos-kpis",
+  "clientes-kpis",
+  "cotizaciones-kpis",
+  "lotes-kpis",
+  "evolucion-ventas",
+  "ventas-cobranza",
+  "proyectos",
+  "estado-lotes",
+  "ranking-asesores",
+  "embudo",
+  "nuevos-clientes",
+  "cobranza-pagos",
+  "actividad",
+];
+
+/** Panel de cobranza: ingresos y cuentas por cobrar. */
+const COBRANZAS_SECTIONS: readonly DashboardSection[] = [
+  "ventas-kpis",
+  "ingresos-kpis",
+  "ventas-cobranza",
+  "cobranza-pagos",
+  "actividad",
+];
+
+/** Paneles del dashboard visibles por cada rol. */
+const DASHBOARD_SECTIONS_BY_ROLE: Record<string, readonly DashboardSection[]> = {
+  SUPER_ADMIN: ALL_SECTIONS,
+  ADMIN: ALL_SECTIONS,
+  VENTAS: VENTAS_SECTIONS,
+  ASESOR: ASESOR_SECTIONS,
+  SUPERVISOR: SUPERVISOR_SECTIONS,
+  COBRANZAS: COBRANZAS_SECTIONS,
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const isAdvisorOnly = user?.role?.toUpperCase() === "ASESOR";
+  const role = (user?.role ?? "").toUpperCase();
+  const isGlobalScope = GLOBAL_SCOPE_ROLES.includes(role);
+  const canFilterByAdvisor = ADVISOR_FILTER_ROLES.includes(role);
+  const sections = useMemo(() => DASHBOARD_SECTIONS_BY_ROLE[role] ?? [], [role]);
+  const hasSection = (section: DashboardSection) => sections.includes(section);
 
   const [period, setPeriod] = useState("month");
   const [projectId, setProjectId] = useState("");
@@ -457,11 +572,11 @@ export default function Dashboard() {
   const [salesMetric, setSalesMetric] = useState<"ventas" | "ingresos">("ventas");
   const [refreshing, setRefreshing] = useState(false);
 
-  const summaryParams = buildParams({ period, project_id: projectId, advisor_id: isAdvisorOnly ? "" : advisorId });
-  const trendParams = buildParams({ range: rangeTrend, project_id: projectId, advisor_id: isAdvisorOnly ? "" : advisorId });
-  const cobranzaParams = buildParams({ range: rangeCobranza, project_id: projectId, advisor_id: isAdvisorOnly ? "" : advisorId });
-  const clientsParams = buildParams({ range: rangeClients, project_id: projectId, advisor_id: isAdvisorOnly ? "" : advisorId });
-  const sourcesParams = buildParams({ range: rangeSources, project_id: projectId, advisor_id: isAdvisorOnly ? "" : advisorId });
+  const summaryParams = buildParams({ period, project_id: projectId, advisor_id: canFilterByAdvisor ? advisorId : "" });
+  const trendParams = buildParams({ range: rangeTrend, project_id: projectId, advisor_id: canFilterByAdvisor ? advisorId : "" });
+  const cobranzaParams = buildParams({ range: rangeCobranza, project_id: projectId, advisor_id: canFilterByAdvisor ? advisorId : "" });
+  const clientsParams = buildParams({ range: rangeClients, project_id: projectId, advisor_id: canFilterByAdvisor ? advisorId : "" });
+  const sourcesParams = buildParams({ range: rangeSources, project_id: projectId, advisor_id: canFilterByAdvisor ? advisorId : "" });
   const advisorsParams = buildParams({ period: rankPeriod, project_id: projectId });
 
   type SummaryQuery = { data?: DashboardSummary; isLoading: boolean; isError: boolean; refetch: () => void };
@@ -472,34 +587,42 @@ export default function Dashboard() {
   const trend = useQuery({
     queryKey: ["dashboard", "trend", rangeTrend, projectId, advisorId],
     queryFn: ({ signal }) => api.get<DashboardTrendPoint[]>(`/dashboard/trend${trendParams}`, true, signal),
+    enabled: hasSection("evolucion-ventas"),
   });
   const cobranzaTrend = useQuery({
     queryKey: ["dashboard", "trend", rangeCobranza, projectId, advisorId],
     queryFn: ({ signal }) => api.get<DashboardTrendPoint[]>(`/dashboard/trend${cobranzaParams}`, true, signal),
+    enabled: hasSection("ventas-cobranza"),
   });
   const projects = useQuery({
     queryKey: ["dashboard", "projects"],
     queryFn: ({ signal }) => api.get<DashboardProjectPerformance[]>("/dashboard/projects", true, signal),
+    enabled: hasSection("proyectos"),
   });
   const advisors = useQuery({
     queryKey: ["dashboard", "advisors", rankPeriod, projectId],
     queryFn: ({ signal }) => api.get<DashboardAdvisorRow[]>(`/dashboard/advisors${advisorsParams}`, true, signal),
+    enabled: hasSection("ranking-asesores"),
   });
   const funnel = useQuery({
     queryKey: ["dashboard", "funnel", projectId, advisorId],
-    queryFn: ({ signal }) => api.get<DashboardFunnel>(`/dashboard/funnel${buildParams({ project_id: projectId, advisor_id: isAdvisorOnly ? "" : advisorId })}`, true, signal),
+    queryFn: ({ signal }) => api.get<DashboardFunnel>(`/dashboard/funnel${buildParams({ project_id: projectId, advisor_id: canFilterByAdvisor ? advisorId : "" })}`, true, signal),
+    enabled: hasSection("embudo"),
   });
   const sources = useQuery({
     queryKey: ["dashboard", "sources", rangeSources, projectId, advisorId],
     queryFn: ({ signal }) => api.get<{ total: number; items: DashboardSourceDatum[] }>(`/dashboard/leads-by-source${sourcesParams}`, true, signal),
+    enabled: hasSection("leads-origen"),
   });
   const clientsTrend = useQuery({
     queryKey: ["dashboard", "clients-trend", rangeClients, projectId, advisorId],
     queryFn: ({ signal }) => api.get<DashboardClientsTrendPoint[]>(`/dashboard/clients-trend${clientsParams}`, true, signal),
+    enabled: hasSection("nuevos-clientes"),
   });
   const activity = useQuery({
     queryKey: ["dashboard", "activity"],
     queryFn: ({ signal }) => api.get<DashboardActivityItem[]>("/dashboard/activity?limit=15", true, signal),
+    enabled: hasSection("actividad"),
   });
   const projectsFilter = useQuery({
     queryKey: ["projects-admin"],
@@ -560,9 +683,9 @@ export default function Dashboard() {
       <PageHeader
         title="Dashboard"
         subtitle={
-          isAdvisorOnly
-            ? "Resumen de tu actividad: tus clientes, ventas y gestiones."
-            : "Centro de control de Netland: ventas, ingresos, proyectos y cobranza."
+          isGlobalScope
+            ? "Centro de control de Netland: ventas, ingresos, proyectos y cobranza."
+            : "Resumen de tu actividad: tus clientes, ventas y gestiones."
         }
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -581,7 +704,7 @@ export default function Dashboard() {
                 </option>
               ))}
             </Select>
-            {!isAdvisorOnly && (
+            {canFilterByAdvisor && (
               <Select value={advisorId} onChange={(e) => setAdvisorId(e.target.value)} className="!w-auto !px-3 !py-2 text-sm" aria-label="Asesor">
                 <option value="">Todos los asesores</option>
                 {(advisorsFilter.data ?? []).map((a) => (
@@ -621,13 +744,15 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="space-y-6">
-          <KpiSection title="Ventas" icon={<TrendingUp className="h-4 w-4 text-netland-primary" />}>
-            <KpiCard label="Ventas totales" value={fmtInt(s.sales.total)} icon={<BadgeCheck className="h-4 w-4" />} accent={CHART_GREEN} hint="Contratos de compra-venta registrados" />
-            <KpiCard label={`Ventas · ${periodLabel}`} value={fmtInt(s.sales.current)} icon={<TrendingUp className="h-4 w-4" />} accent={CHART_BLUE} delta={s.sales.growth_pct} hint={`Ventas en el período (${periodLabel}), comparadas con el período anterior`} />
-            <KpiCard label="Ventas del año" value={fmtInt(s.sales.year)} icon={<CalendarDays className="h-4 w-4" />} accent={CHART_GOLD} hint="Contratos registrados en el año calendario actual" />
-            <KpiCard label="Asesores" value={fmtInt(advisorsFilter.data?.length)} icon={<Users className="h-4 w-4" />} accent={CHART_PURPLE} hint="Asesores registrados en el sistema" />
-          </KpiSection>
-          {!isAdvisorOnly && (
+          {hasSection("ventas-kpis") && (
+            <KpiSection title="Ventas" icon={<TrendingUp className="h-4 w-4 text-netland-primary" />}>
+              <KpiCard label="Ventas totales" value={fmtInt(s.sales.total)} icon={<BadgeCheck className="h-4 w-4" />} accent={CHART_GREEN} hint="Contratos de compra-venta registrados" />
+              <KpiCard label={`Ventas · ${periodLabel}`} value={fmtInt(s.sales.current)} icon={<TrendingUp className="h-4 w-4" />} accent={CHART_BLUE} delta={s.sales.growth_pct} hint={`Ventas en el período (${periodLabel}), comparadas con el período anterior`} />
+              <KpiCard label="Ventas del año" value={fmtInt(s.sales.year)} icon={<CalendarDays className="h-4 w-4" />} accent={CHART_GOLD} hint="Contratos registrados en el año calendario actual" />
+              <KpiCard label="Asesores" value={fmtInt(advisorsFilter.data?.length)} icon={<Users className="h-4 w-4" />} accent={CHART_PURPLE} hint="Asesores registrados en el sistema" />
+            </KpiSection>
+          )}
+          {hasSection("ingresos-kpis") && (
             <KpiSection title="Ingresos" icon={<Wallet className="h-4 w-4 text-netland-primary" />}>
               <KpiCard label="Monto vendido" value={formatSoles(s.revenue.sold_total)} icon={<DollarSign className="h-4 w-4" />} accent={CHART_GREEN} hint="Suma de precios totales de contratos (ventas)" />
               <KpiCard label="Monto cobrado" value={formatSoles(s.revenue.collected_total)} icon={<HandCoins className="h-4 w-4" />} accent={CHART_GOLD} hint="Total cobrado por pagos registrados" />
@@ -635,29 +760,36 @@ export default function Dashboard() {
               <KpiCard label="Pagos del mes" value={formatSoles(s.revenue.payments_month)} icon={<CalendarDays className="h-4 w-4" />} accent={CHART_TEAL} hint="Cobrado en el mes calendario actual" />
             </KpiSection>
           )}
-          <KpiSection title="Clientes" icon={<Users className="h-4 w-4 text-netland-primary" />}>
-            <KpiCard label="Clientes totales" value={fmtInt(s.clients.total)} icon={<Users className="h-4 w-4" />} accent={CHART_BLUE} hint="Clientes vinculados a leads" />
-            <KpiCard label={`Clientes nuevos · ${periodLabel}`} value={fmtInt(s.clients.new_current)} icon={<UserPlus className="h-4 w-4" />} accent={CHART_GREEN} hint="Clientes nuevos en el período seleccionado" />
-            <KpiCard label={`Leads nuevos · ${periodLabel}`} value={fmtInt(s.clients.leads_new_current)} icon={<MessageSquare className="h-4 w-4" />} accent={CHART_GOLD} hint="Nuevos leads captados en el período" />
-            <KpiCard label={`Cotizaciones · ${periodLabel}`} value={fmtInt(s.clients.quotes_current)} icon={<FileText className="h-4 w-4" />} accent={CHART_PURPLE} hint="Cotizaciones generadas en el período" />
-          </KpiSection>
-          <KpiSection title="Lotes" icon={<Milestone className="h-4 w-4 text-netland-primary" />}>
-            <KpiCard label="Lotes totales" value={fmtInt(s.lots.total)} icon={<Milestone className="h-4 w-4" />} accent="#64736e" hint="Total de lotes (con el filtro de proyecto aplicado)" />
-            <KpiCard label="Disponibles" value={fmtInt(s.lots.available)} icon={<Milestone className="h-4 w-4" />} accent="#16a34a" hint="Lotes en estado DISPONIBLE" />
-            <KpiCard label="Reservados" value={fmtInt(s.lots.reserved)} icon={<Milestone className="h-4 w-4" />} accent="#eab308" hint="Lotes en estado RESERVADO" />
-            <KpiCard label="Vendidos" value={fmtInt(s.lots.sold)} icon={<Milestone className="h-4 w-4" />} accent="#dc2626" hint="Lotes en estado VENDIDO" />
-          </KpiSection>
-          <KpiSection title="Cotizaciones" icon={<FileText className="h-4 w-4 text-netland-primary" />}>
-            <KpiCard label="Cotizaciones totales" value={fmtInt(s.quotes.total)} icon={<FileText className="h-4 w-4" />} accent={CHART_GREEN} hint="Total de cotizaciones generadas" />
-            <KpiCard label="Pendientes" value={fmtInt(s.quotes.pending)} icon={<Clock className="h-4 w-4" />} accent={CHART_GOLD} hint="Cotizaciones en borrador o enviadas" />
-            <KpiCard label="Aceptadas" value={fmtInt(s.quotes.accepted)} icon={<CheckCircle2 className="h-4 w-4" />} accent={CHART_TEAL} hint="Cotizaciones aceptadas por el cliente" />
-            <KpiCard label="Conversión a venta" value={s.quotes.conversion_to_sale == null ? "—" : `${fmtInt(s.quotes.conversion_to_sale)}%`} icon={<Target className="h-4 w-4" />} accent={CHART_PURPLE} hint="Contratos registrados / cotizaciones generadas" />
-          </KpiSection>
+          {hasSection("clientes-kpis") && (
+            <KpiSection title="Clientes" icon={<Users className="h-4 w-4 text-netland-primary" />}>
+              <KpiCard label="Clientes totales" value={fmtInt(s.clients.total)} icon={<Users className="h-4 w-4" />} accent={CHART_BLUE} hint="Clientes vinculados a leads" />
+              <KpiCard label={`Clientes nuevos · ${periodLabel}`} value={fmtInt(s.clients.new_current)} icon={<UserPlus className="h-4 w-4" />} accent={CHART_GREEN} hint="Clientes nuevos en el período seleccionado" />
+              <KpiCard label={`Leads nuevos · ${periodLabel}`} value={fmtInt(s.clients.leads_new_current)} icon={<MessageSquare className="h-4 w-4" />} accent={CHART_GOLD} hint="Nuevos leads captados en el período" />
+              <KpiCard label={`Cotizaciones · ${periodLabel}`} value={fmtInt(s.clients.quotes_current)} icon={<FileText className="h-4 w-4" />} accent={CHART_PURPLE} hint="Cotizaciones generadas en el período" />
+            </KpiSection>
+          )}
+          {hasSection("lotes-kpis") && (
+            <KpiSection title="Lotes" icon={<Milestone className="h-4 w-4 text-netland-primary" />}>
+              <KpiCard label="Lotes totales" value={fmtInt(s.lots.total)} icon={<Milestone className="h-4 w-4" />} accent="#64736e" hint="Total de lotes (con el filtro de proyecto aplicado)" />
+              <KpiCard label="Disponibles" value={fmtInt(s.lots.available)} icon={<Milestone className="h-4 w-4" />} accent="#16a34a" hint="Lotes en estado DISPONIBLE" />
+              <KpiCard label="Reservados" value={fmtInt(s.lots.reserved)} icon={<Milestone className="h-4 w-4" />} accent="#eab308" hint="Lotes en estado RESERVADO" />
+              <KpiCard label="Vendidos" value={fmtInt(s.lots.sold)} icon={<Milestone className="h-4 w-4" />} accent="#dc2626" hint="Lotes en estado VENDIDO" />
+            </KpiSection>
+          )}
+          {hasSection("cotizaciones-kpis") && (
+            <KpiSection title="Cotizaciones" icon={<FileText className="h-4 w-4 text-netland-primary" />}>
+              <KpiCard label="Cotizaciones totales" value={fmtInt(s.quotes.total)} icon={<FileText className="h-4 w-4" />} accent={CHART_GREEN} hint="Total de cotizaciones generadas" />
+              <KpiCard label="Pendientes" value={fmtInt(s.quotes.pending)} icon={<Clock className="h-4 w-4" />} accent={CHART_GOLD} hint="Cotizaciones en borrador o enviadas" />
+              <KpiCard label="Aceptadas" value={fmtInt(s.quotes.accepted)} icon={<CheckCircle2 className="h-4 w-4" />} accent={CHART_TEAL} hint="Cotizaciones aceptadas por el cliente" />
+              <KpiCard label="Conversión a venta" value={s.quotes.conversion_to_sale == null ? "—" : `${fmtInt(s.quotes.conversion_to_sale)}%`} icon={<Target className="h-4 w-4" />} accent={CHART_PURPLE} hint="Contratos registrados / cotizaciones generadas" />
+            </KpiSection>
+          )}
         </div>
       )}
 
       {/* ===================== EVOLUCIÓN DE VENTAS ===================== */}
       <div className="grid gap-6 xl:grid-cols-2">
+        {hasSection("evolucion-ventas") && (
         <Panel
           title="Evolución de ventas"
           subtitle={salesMetric === "ventas" ? "Cantidad de ventas y monto vendido" : "Monto vendido vs. cobrado"}
@@ -716,7 +848,9 @@ export default function Dashboard() {
             </div>
           )}
         </Panel>
+        )}
 
+        {hasSection("ventas-cobranza") && (
         <Panel
           title="Ventas vs. Cobranza"
           subtitle="Monto vendido, cobrado y pendiente por período"
@@ -751,10 +885,12 @@ export default function Dashboard() {
             </div>
           )}
         </Panel>
+        )}
       </div>
 
       {/* ===================== PROYECTOS Y ESTADO DE LOTES ===================== */}
       <div className="grid gap-6 xl:grid-cols-2">
+        {hasSection("proyectos") && (
         <Panel
           title="Rendimiento de proyectos"
           subtitle="Ocupación de lotes y monto vendido por proyecto"
@@ -801,7 +937,9 @@ export default function Dashboard() {
             </div>
           )}
         </Panel>
+        )}
 
+        {hasSection("estado-lotes") && (
         <Panel
           title="Estado de lotes"
           subtitle="Distribución global del inventario"
@@ -836,10 +974,12 @@ export default function Dashboard() {
             </div>
           )}
         </Panel>
+        )}
       </div>
 
       {/* ===================== RANKING DE ASESORES Y EMBUDO ===================== */}
       <div className="grid gap-6 xl:grid-cols-2">
+        {hasSection("ranking-asesores") && (
         <Panel
           title="Ranking de asesores"
           subtitle="Desempeño comercial por asesor"
@@ -907,7 +1047,9 @@ export default function Dashboard() {
             </div>
           )}
         </Panel>
+        )}
 
+        {hasSection("embudo") && (
         <Panel
           title="Embudo comercial"
           subtitle="Progresión de leads hasta la venta"
@@ -921,10 +1063,12 @@ export default function Dashboard() {
             <FunnelChart stages={funnel.data.stages} conversions={funnel.data.conversions} />
           )}
         </Panel>
+        )}
       </div>
 
       {/* ===================== LEADS POR ORIGEN Y CLIENTES NUEVOS ===================== */}
       <div className="grid gap-6 xl:grid-cols-2">
+        {hasSection("leads-origen") && (
         <Panel
           title="¿De dónde vienen nuestros clientes?"
           subtitle="Leads por origen"
@@ -979,7 +1123,9 @@ export default function Dashboard() {
             </div>
           )}
         </Panel>
+        )}
 
+        {hasSection("nuevos-clientes") && (
         <Panel
           title="Nuevos clientes"
           subtitle="Evolución de clientes y leads en el tiempo"
@@ -1013,11 +1159,12 @@ export default function Dashboard() {
             </div>
           )}
         </Panel>
+        )}
       </div>
 
       {/* ===================== COBRANZA Y PRÓXIMOS PAGOS ===================== */}
-      {!isAdvisorOnly && (
-        <div className="grid gap-6 xl:grid-cols-3">
+      {hasSection("cobranza-pagos") && (
+      <div className="grid gap-6 xl:grid-cols-3">
           <div className="xl:col-span-2">
             <Panel
               title="Estado de cobranza"
@@ -1092,6 +1239,7 @@ export default function Dashboard() {
       )}
 
       {/* ===================== ACTIVIDAD RECIENTE ===================== */}
+      {hasSection("actividad") && (
       <Panel
         title="Actividad reciente"
         subtitle="Últimas acciones registradas en el sistema"
@@ -1132,6 +1280,7 @@ export default function Dashboard() {
           </ul>
         )}
       </Panel>
+      )}
     </div>
   );
 }

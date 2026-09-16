@@ -34,6 +34,8 @@ class UserUpdate(BaseModel):
     password: str | None = Field(default=None, min_length=8)
     role: str | None = None
     is_active: bool | None = None
+    # Cuota de usuarios que un ADMIN puede crear (solo puede asignarla SUPER_ADMIN).
+    user_quota: int | None = Field(default=None, ge=0, le=10000)
 
 
 class UserOut(BaseModel):
@@ -44,6 +46,8 @@ class UserOut(BaseModel):
     is_active: bool
     advisor_id: int | None = None
     advisor_name: str | None = None
+    user_quota: int | None = None
+    created_by: int | None = None
     created_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -58,5 +62,7 @@ class UserOut(BaseModel):
             is_active=user.is_active,
             advisor_id=user.advisor.id if user.advisor else None,
             advisor_name=user.advisor.name if user.advisor else None,
+            user_quota=user.user_quota,
+            created_by=user.created_by,
             created_at=user.created_at,
         )

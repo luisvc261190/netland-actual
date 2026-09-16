@@ -13,6 +13,7 @@ from app.api.routes import (
     excel_import,
     imports,
     installments,
+    maintenance,
     owners,
     payments,
     plan_import,
@@ -48,5 +49,7 @@ api_router.include_router(sales.router)
 api_router.include_router(commissions.router)
 # Módulo de Respaldos (solo SUPER_ADMIN)
 api_router.include_router(backups.router)
+# Zona de peligro: restablecimiento de datos (solo SUPER_ADMIN)
+api_router.include_router(maintenance.router)
 # Módulo de Anuncios / pop-up de la web pública
 api_router.include_router(announcements.router)

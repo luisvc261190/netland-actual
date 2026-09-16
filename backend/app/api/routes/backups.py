@@ -4,7 +4,9 @@ Acceso exclusivo para el rol SUPER_ADMIN.
 """
 from typing import List
 
+import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -114,6 +116,42 @@ def delete(
     db.commit()
 
     return {"message": "Respaldo eliminado."}
+
+
+@router.get("/{backup_id}/download")
+def download(
+    backup_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_super_admin),
+):
+    """Descarga el archivo del respaldo hacia la máquina local.
+
+    Se sirve con `Content-Disposition: attachment` para que el navegador
+    lo guarde como archivo en lugar de abrirlo.
+    """
+    backup = db.get(Backup, backup_id)
+    if not backup:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Respaldo no encontrado.",
+        )
+
+    url = get_signed_url(backup)
+    try:
+        response = httpx.get(url, follow_redirects=True, timeout=60)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"No se pudo obtener el respaldo desde Cloudinary: {exc}",
+        )
+
+    filename = backup.filename or f"backup_{backup.id}.json"
+    return StreamingResponse(
+        iter([response.content]),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/restore", response_model=BackupRestoreResult)

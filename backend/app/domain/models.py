@@ -104,10 +104,18 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+
+    # Cuota de usuarios que un ADMIN puede crear (configurada por SUPER_ADMIN).
+    # None = no configurada (el admin no puede crear hasta que se asigne).
+    user_quota = Column(Integer, nullable=True)
+    # Usuario que creó esta cuenta (permite controlar la cuota por admin).
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     role = relationship("RoleModel", back_populates="users")
+    creator = relationship("User", remote_side=[id], backref="created_users")
     advisor = relationship(
         "Advisor", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )

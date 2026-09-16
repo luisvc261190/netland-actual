@@ -5,6 +5,8 @@ import { api } from "../../../lib/api";
 import { useToast } from "../../../components/ui/Toast";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { FileUploader } from "../../../components/ui/FileUploader";
+import { useAuth } from "../AuthContext";
+import { DangerZone } from "./DangerZone";
 
 interface SiteConfig {
   [key: string]: string;
@@ -71,6 +73,8 @@ function extractVideoId(url: string): string | null {
 export default function SiteSettings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role?.toUpperCase() === "SUPER_ADMIN";
   const [uploadMethod, setUploadMethod] = useState<"youtube" | "upload">("youtube");
 
   const { data: config, isLoading } = useQuery<SiteConfig>({
@@ -482,6 +486,8 @@ export default function SiteSettings() {
           </button>
         </div>
       </form>
+
+      {isSuperAdmin && <DangerZone />}
     </div>
   );
 }

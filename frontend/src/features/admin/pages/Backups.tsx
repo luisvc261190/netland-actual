@@ -84,10 +84,26 @@ export default function AdminBackups() {
   const latest = backups?.[0];
   const totalRows = backups?.reduce((sum, b) => sum + b.total_rows, 0) ?? 0;
 
-  const handleDownload = async (id: number) => {
+  const handleDownload = async (backup: Backup) => {
     try {
-      const detail = await api.get<BackupDetail>(`/backups/${id}`, true);
-      window.open(detail.url, "_blank", "noopener,noreferrer");
+      const token = authStorage.getToken();
+      const response = await fetch(`${API_URL}/backups/${backup.id}/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || "Error al descargar el respaldo.");
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = backup.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
     } catch (e) {
       toast(errorMessage(e), "error");
     }
@@ -214,7 +230,7 @@ export default function AdminBackups() {
                   <Button
                     variant="outline"
                     className="!px-2.5 !py-1.5"
-                    onClick={() => handleDownload(backup.id)}
+                    onClick={() => handleDownload(backup)}
                     aria-label="Descargar respaldo"
                   >
                     <Download className="h-3.5 w-3.5" />

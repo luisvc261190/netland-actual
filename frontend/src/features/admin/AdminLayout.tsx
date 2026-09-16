@@ -169,7 +169,7 @@ const navItems = [
     to: "/admin/usuarios",
     label: "Usuarios",
     icon: Users,
-    roles: ["SUPER_ADMIN"],
+    roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
     section: "Sistema",
