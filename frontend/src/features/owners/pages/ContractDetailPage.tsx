@@ -515,6 +515,22 @@ export default function ContractDetailPage() {
   const totalPaidSchedule = installments.reduce((sum, i) => sum + i.paid_amount, 0);
   const totalBalance = installments.reduce((sum, i) => sum + i.balance, 0);
 
+  // Vista previa del refinanciamiento: replica el cálculo del backend
+  // (saldo / cuotas con redondeo a 2 decimales, la última cuota absorbe
+  // la diferencia).
+  const refinanceNum = parseInt(refinanceForm.number_of_installments, 10);
+  const refinancePreview =
+    refinanceNum > 0 && totalBalance > 0
+      ? (() => {
+          const per = Math.round((totalBalance / refinanceNum) * 100) / 100;
+          const last =
+            refinanceNum > 1
+              ? Math.round((totalBalance - per * (refinanceNum - 1)) * 100) / 100
+              : per;
+          return { per, last: last >= 0.01 ? last : per };
+        })()
+      : null;
+
   // Interés por mora (S/ diario configurable): vista previa para el modal de pago
   const dailyRate =
     lateConfig?.enabled && lateConfig.daily_rate > 0 ? lateConfig.daily_rate : 0;
@@ -1288,6 +1304,28 @@ export default function ContractDetailPage() {
               placeholder={`Ej: ${Math.max(pendingCount, 1)}`}
             />
           </Field>
+          {refinancePreview && (
+            <div className="rounded-lg border border-netland-light bg-netland-light/50 px-4 py-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-netland-muted">Cuota estimada</span>
+                <span className="font-bold text-netland-primary">
+                  {formatSoles(refinancePreview.per)}
+                </span>
+              </div>
+              {refinanceNum > 1 && (
+                <div className="mt-1 flex items-center justify-between text-xs text-netland-muted">
+                  <span>Última cuota (absorbe la diferencia del redondeo)</span>
+                  <span className="font-semibold text-netland-dark">
+                    {formatSoles(refinancePreview.last)}
+                  </span>
+                </div>
+              )}
+              <p className="mt-2 border-t border-netland-light pt-2 text-xs text-netland-muted">
+                Saldo a refinanciar: {formatSoles(totalBalance)} repartido en{" "}
+                {refinanceNum} cuota(s) desde el {refinanceForm.start_date}.
+              </p>
+            </div>
+          )}
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setRefinanceOpen(false)}>
               Cancelar
