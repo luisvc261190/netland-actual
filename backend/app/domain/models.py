@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     Numeric,
     String,
     Text,
@@ -147,6 +148,17 @@ class Project(Base):
     # Datos bancarios del proyecto: banco y número de cuenta para depósitos
     bank_name = Column(String(100), default="")
     bank_account_number = Column(String(60), default="")
+    # Cuentas bancarias múltiples para depósitos. Cada entrada es un dict:
+    #   {
+    #     "bank": "Banco de Crédito del Perú (BCP)",
+    #     "account_number": "19X-...",       # cuenta en soles
+    #     "cci": "002...",                    # CCI de la cuenta en soles
+    #     "account_number_usd": "...",        # cuenta en dólares (opcional)
+    #     "cci_usd": "...",                   # CCI de la cuenta en dólares (opcional)
+    #   }
+    # Se mantiene bank_name/bank_account_number como primaria/derivada para
+    # no romper las integraciones que aún dependen de esos campos.
+    bank_accounts = Column(JSON, default=list, nullable=False)
     status = Column(String(30), default="active")
     is_published = Column(Boolean, default=True, nullable=False)
     legal_info = Column(Text, default="")

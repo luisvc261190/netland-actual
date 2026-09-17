@@ -21,6 +21,73 @@ def format_soles(value: float | None) -> str:
     return f"S/ {value:,.2f}"
 
 
+def _bank_account_value(account, key: str) -> str:
+    """Lee un valor de una cuenta bancaria (dict o pydantic model)."""
+    if isinstance(account, dict):
+        value = account.get(key) or ""
+    else:
+        value = getattr(account, key, None) or ""
+    return str(value).strip()
+
+
+def _describe_bank_accounts(
+    bank_accounts=None,
+    bank_name: str | None = None,
+    bank_account_number: str | None = None,
+) -> list[list[tuple[str, str]]]:
+    """Transforma las cuentas bancarias del proyecto en tarjetas imprimibles.
+
+    Cada tarjeta es una lista de pares (etiqueta, valor). Una cuenta puede
+    incluir cuenta en soles y en dólares, cada una con su CCI. Si no hay
+    cuentas estructuradas, usa los campos heredados `bank_name` /
+    `bank_account_number` para conservar el comportamiento anterior.
+    """
+    accounts = [a for a in (bank_accounts or []) if a]
+
+    legacy = bool(bank_name or bank_account_number)
+    if not accounts:
+        if legacy:
+            return [[("BANCO", bank_name or "—"), ("N° DE CUENTA", bank_account_number or "—")]]
+        return []
+
+    groups: list[list[tuple[str, str]]] = []
+    for account in accounts:
+        bank = _bank_account_value(account, "bank") or "—"
+        account_number = _bank_account_value(account, "account_number")
+        cci = _bank_account_value(account, "cci")
+        account_number_usd = _bank_account_value(account, "account_number_usd")
+        cci_usd = _bank_account_value(account, "cci_usd")
+
+        fields: list[tuple[str, str]] = [("BANCO", bank)]
+        if account_number:
+            fields.append(("CUENTA SOLES (S/)", account_number))
+        if cci:
+            fields.append(("CCI SOLES", cci))
+        if account_number_usd:
+            fields.append(("CUENTA DÓLARES (US$)", account_number_usd))
+        if cci_usd:
+            fields.append(("CCI DÓLARES", cci_usd))
+        if len(fields) == 1:
+            fields.append(("N° DE CUENTA", "—"))
+        groups.append(fields)
+
+    return groups
+
+
+def _fit_text(c: canvas.Canvas, text: str, font: str, size: float, max_width: float) -> str:
+    """Recorta un texto (desde el final) para que quepa en max_width."""
+    if not text:
+        return text
+    if c.stringWidth(text, font, size) <= max_width:
+        return text
+    result = text
+    while result and c.stringWidth(result, font, size) > max_width:
+        result = result[:-1]
+    if len(result) < len(text):
+        result = result[:-3] + "…"
+    return result
+
+
 def _number_to_words(number: float) -> str:
     """Convierte un número a palabras en español (para montos en facturas)."""
     
@@ -374,6 +441,7 @@ def generate_quote_pdf(
     company_accounts: list[str] | None = None,
     bank_name: str | None = None,
     bank_account_number: str | None = None,
+    bank_accounts: list | None = None,
     price_per_m2: float | None = None,
     esquina_surcharge: float = 0,
     frente_parque_surcharge: float = 0,
@@ -1099,80 +1167,63 @@ def generate_quote_pdf(
     y -= payment_height + 7 * mm
 
     # =========================================================================
-    # DATOS BANCARIOS DEL PROYECTO (CUENTA PARA DEPÓSITOS)
+    # DATOS BANCARIOS DEL PROYECTO (CUENTAS PARA DEPÓSITOS)
     # =========================================================================
 
-    if bank_name or bank_account_number:
+    bank_groups = _describe_bank_accounts(bank_accounts, bank_name, bank_account_number)
+    if bank_groups:
+        row_spacing = 5.5 * mm
+        base_height = 15 * mm
+        value_x = margin_left + 40 * mm
+        value_max_width = content_width - 44 * mm
 
-        bank_height = 15 * mm
-        bank_card_y = y
+        for fields in bank_groups:
+            bank_height = base_height + max(0, len(fields) - 2) * row_spacing
+            bank_card_y = y
 
-        c.setFillColor(WHITE)
-        c.setStrokeColor(BORDER)
-        c.setLineWidth(0.5)
+            c.setFillColor(WHITE)
+            c.setStrokeColor(BORDER)
+            c.setLineWidth(0.5)
 
-        c.roundRect(
-            margin_left,
-            bank_card_y - bank_height,
-            content_width,
-            bank_height,
-            2 * mm,
-            stroke=1,
-            fill=1,
-        )
+            c.roundRect(
+                margin_left,
+                bank_card_y - bank_height,
+                content_width,
+                bank_height,
+                2 * mm,
+                stroke=1,
+                fill=1,
+            )
 
-        # Barra lateral verde institucional
-        c.setFillColor(colors.HexColor("#16a34a"))
+            # Barra lateral verde institucional
+            c.setFillColor(colors.HexColor("#16a34a"))
 
-        c.roundRect(
-            margin_left,
-            bank_card_y - bank_height,
-            1.3 * mm,
-            bank_height,
-            0.7 * mm,
-            stroke=0,
-            fill=1,
-        )
+            c.roundRect(
+                margin_left,
+                bank_card_y - bank_height,
+                1.3 * mm,
+                bank_height,
+                0.7 * mm,
+                stroke=0,
+                fill=1,
+            )
 
-        # Banco
-        c.setFillColor(GREY)
-        c.setFont("Helvetica-Bold", 7)
+            for idx, (label, value) in enumerate(fields):
+                row_y = bank_card_y - (6 * mm + idx * row_spacing)
 
-        c.drawString(
-            margin_left + 5 * mm,
-            bank_card_y - 6 * mm,
-            "BANCO",
-        )
+                c.setFillColor(GREY)
+                c.setFont("Helvetica-Bold", 7)
+                c.drawString(margin_left + 5 * mm, row_y, label)
 
-        c.setFillColor(DARK)
-        c.setFont("Helvetica-Bold", 9)
+                c.setFillColor(DARK if idx == 0 else MUSTARD)
+                c.setFont("Helvetica-Bold", 9 if idx == 0 else 8.5)
+                c.drawString(
+                    value_x,
+                    row_y,
+                    _fit_text(c, value, "Helvetica-Bold", 9 if idx == 0 else 8.5, value_max_width),
+                )
 
-        c.drawString(
-            margin_left + 32 * mm,
-            bank_card_y - 6 * mm,
-            bank_name or "—",
-        )
-
-        # Número de cuenta
-        c.setFillColor(GREY)
-        c.setFont("Helvetica-Bold", 7)
-
-        c.drawString(
-            margin_left + 5 * mm,
-            bank_card_y - 11.5 * mm,
-            "N° DE CUENTA",
-        )
-
-        c.setFillColor(MUSTARD)
-        c.setFont("Helvetica-Bold", 9.5)
-
-        c.drawString(
-            margin_left + 32 * mm,
-            bank_card_y - 11.5 * mm,
-            bank_account_number or "—",
-        )
-
-        y -= bank_height + 6 * mm
+            y -= bank_height + 6 * mm
 
     # =========================================================================
     # RESUMEN ECONÓMICO
@@ -1598,6 +1649,7 @@ def generate_contract_pdf(
     initial_vouchers: list | None = None,
     bank_name: str | None = None,
     bank_account_number: str | None = None,
+    bank_accounts: list | None = None,
 ) -> bytes:
     """
     Genera un CONTRATO DE COMPRAVENTA DE BIEN FUTURO legalmente válido para el Perú.
@@ -1794,12 +1846,16 @@ def generate_contract_pdf(
         story.append(Spacer(1, 2 * mm))
         
         # Tabla de datos bancarios
+        bank_rows = [
+            [label, value or "____________________"]
+            for fields in _describe_bank_accounts(bank_accounts, bank_name, bank_account_number)
+            for label, value in fields
+        ]
         bank_data = [
             ["Concepto", "Detalle"],
             ["Beneficiario", company_name],
             ["RUC", company_ruc or "XXXXXXXXXXX"],
-            ["Banco", bank_name or "____________________"],
-            ["N° de Cuenta", bank_account_number or "____________________"],
+            *bank_rows,
             ["Monto", format_soles(total_price)],
             ["Fecha de operación", "____________________"],
             ["N° de operación", "____________________"],
@@ -1844,12 +1900,16 @@ def generate_contract_pdf(
             story.append(Spacer(1, 2 * mm))
 
             # Cuenta del proyecto para depósitos (venta financiada)
-            if bank_name or bank_account_number:
+            bank_rows = [
+                [label, value or "____________________"]
+                for fields in _describe_bank_accounts(bank_accounts, bank_name, bank_account_number)
+                for label, value in fields
+            ]
+            if bank_rows or bank_name or bank_account_number:
                 bank_data = [
                     ["Concepto", "Detalle"],
                     ["Beneficiario", company_name],
-                    ["Banco", bank_name or "____________________"],
-                    ["N° de Cuenta", bank_account_number or "____________________"],
+                    *bank_rows,
                 ]
 
                 bank_table = Table(bank_data, colWidths=[45*mm, 85*mm])

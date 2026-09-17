@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Trash2, UserRoundCheck } from "lucide-react";
+import { AlertCircle, Pencil, Plus, Trash2, UserRoundCheck } from "lucide-react";
 import { api } from "../../../lib/api";
 import { ROLE_LABELS, ROLE_COLORS } from "../../../lib/constants";
 import type { Advisor, User } from "../../../types";
@@ -13,6 +13,8 @@ import { useAuth } from "../AuthContext";
 const roleColors: Record<string, string> = ROLE_COLORS;
 const PRIVILEGED_ROLES = ["SUPER_ADMIN", "ADMIN"];
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 interface UserForm {
   name: string;
   email: string;
@@ -21,6 +23,14 @@ interface UserForm {
   is_active: boolean;
   advisor_id: string;
   user_quota: string;
+}
+
+interface FieldErrors {
+  name?: string;
+  email?: string;
+  password?: string;
+  role?: string;
+  advisor_id?: string;
 }
 
 const emptyForm: UserForm = {
@@ -33,6 +43,49 @@ const emptyForm: UserForm = {
   user_quota: "",
 };
 
+const emptyErrors: FieldErrors = {};
+
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return (
+    <p className="mt-1 flex items-start gap-1 text-xs text-red-600">
+      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+      {msg}
+    </p>
+  );
+}
+
+function validateForm(form: UserForm, editing: boolean): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!form.name.trim()) {
+    errors.name = "El nombre es obligatorio.";
+  } else if (form.name.trim().length < 2) {
+    errors.name = "El nombre debe tener al menos 2 caracteres.";
+  }
+  if (!form.email.trim()) {
+    errors.email = "El correo es obligatorio.";
+  } else if (!EMAIL_RE.test(form.email.trim())) {
+    errors.email = "Ingresa un correo electrónico válido (ej: nombre@dominio.com).";
+  }
+  if (!editing && !form.password) {
+    errors.password = "La contraseña es obligatoria.";
+  } else if (form.password && form.password.length < 8) {
+    errors.password = "La contraseña debe tener al menos 8 caracteres.";
+  }
+  return errors;
+}
+
+const serverErrorToField = (msg: string): FieldErrors => {
+  const lower = msg.toLowerCase();
+  if (lower.includes("correo") || lower.includes("@")) return { email: msg };
+  if (lower.includes("contrase") || lower.includes("clave") || lower.includes("password"))
+    return { password: msg };
+  if (lower.includes("nombre") || lower.includes("«name»")) return { name: msg };
+  if (lower.includes("rol")) return { role: msg };
+  if (lower.includes("asesor") || lower.includes("perfil")) return { advisor_id: msg };
+  return {};
+};
+
 export default function AdminUsers() {
   const queryClient = useQueryClient();
   const { toast, confirm } = useToast();
@@ -40,6 +93,7 @@ export default function AdminUsers() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [form, setForm] = useState<UserForm>(emptyForm);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>(emptyErrors);
 
   const isSuperAdmin = me?.role?.toUpperCase() === "SUPER_ADMIN";
   const myId = me?.id;
@@ -74,10 +128,17 @@ export default function AdminUsers() {
 
   const saveMutation = useMutation({
     mutationFn: () => {
+      const clientErrors = validateForm(form, Boolean(editing));
+      if (Object.keys(clientErrors).length > 0) {
+        setFieldErrors(clientErrors);
+        throw new Error(
+          Object.values(clientErrors)[0] ?? "Revisa los campos marcados en rojo.",
+        );
+      }
       if (editing) {
         const payload: Record<string, unknown> = { role: form.role, is_active: form.is_active };
         if (form.name) payload.name = form.name;
-        if (form.email) payload.email = form.email;
+        if (form.email) payload.email = form.email.trim().toLowerCase();
         if (form.password) payload.password = form.password;
         if (isSuperAdmin && form.role === "ADMIN" && form.user_quota !== "") {
           payload.user_quota = Number(form.user_quota);
@@ -85,8 +146,8 @@ export default function AdminUsers() {
         return api.put(`/users/${editing.id}`, payload, true);
       }
       const payload: Record<string, unknown> = {
-        name: form.name,
-        email: form.email,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
         password: form.password,
         role: form.role,
         is_active: form.is_active,
@@ -97,10 +158,19 @@ export default function AdminUsers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users-admin"] });
       queryClient.invalidateQueries({ queryKey: ["available-advisors"] });
+      setFieldErrors(emptyErrors);
       toast(editing ? "Usuario actualizado." : "Usuario creado.");
       setModalOpen(false);
     },
-    onError: (e) => toast(e.message, "error"),
+    onError: (e) => {
+      const mapped = serverErrorToField(e.message ?? "");
+      if (Object.keys(mapped).length > 0) {
+        setFieldErrors(mapped);
+        return;
+      }
+      setFieldErrors(emptyErrors);
+      toast(e.message ?? "Ocurrió un error al guardar el usuario.", "error");
+    },
   });
 
   const deleteMutation = useMutation({
@@ -115,6 +185,7 @@ export default function AdminUsers() {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setFieldErrors(emptyErrors);
     setModalOpen(true);
   };
 
@@ -129,7 +200,12 @@ export default function AdminUsers() {
       advisor_id: "",
       user_quota: user.user_quota != null ? String(user.user_quota) : "",
     });
+    setFieldErrors(emptyErrors);
     setModalOpen(true);
+  };
+
+  const clearFieldError = (key: keyof FieldErrors) => {
+    setFieldErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
   };
 
   const showQuotaField = isSuperAdmin && editing?.role === "ADMIN";
@@ -224,18 +300,48 @@ export default function AdminUsers() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar usuario" : "Nuevo usuario"}>
         <div className="space-y-4 p-6">
           <Field label="Nombre">
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input
+              value={form.name}
+              onChange={(e) => {
+                setForm({ ...form, name: e.target.value });
+                clearFieldError("name");
+              }}
+            />
+            <FieldError msg={fieldErrors.name} />
           </Field>
           <Field label="Correo">
-            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => {
+                setForm({ ...form, email: e.target.value });
+                clearFieldError("email");
+              }}
+            />
+            <p className="mt-1 text-xs text-netland-muted">
+              Será la credencial de inicio de sesión y debe ser único en el sistema.
+            </p>
+            <FieldError msg={fieldErrors.email} />
           </Field>
           <Field label={editing ? "Contraseña (dejar vacío para no cambiar)" : "Contraseña"}>
-            <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+            <Input
+              type="password"
+              value={form.password}
+              onChange={(e) => {
+                setForm({ ...form, password: e.target.value });
+                clearFieldError("password");
+              }}
+            />
+            <p className="mt-1 text-xs text-netland-muted">Mínimo 8 caracteres.</p>
+            <FieldError msg={fieldErrors.password} />
           </Field>
           <Field label="Rol">
             <Select
               value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value, user_quota: e.target.value === "ADMIN" ? form.user_quota : "" })}
+              onChange={(e) => {
+                setForm({ ...form, role: e.target.value, user_quota: e.target.value === "ADMIN" ? form.user_quota : "" });
+                clearFieldError("role");
+              }}
             >
               {allowedRoles.map((key) => (
                 <option key={key} value={key}>
@@ -248,6 +354,7 @@ export default function AdminUsers() {
                 Los roles de administración son exclusivos del super administrador.
               </p>
             )}
+            <FieldError msg={fieldErrors.role} />
           </Field>
           {showQuotaField && (
             <Field
@@ -268,7 +375,10 @@ export default function AdminUsers() {
             <Field label="Perfil de asesor">
               <Select
                 value={form.advisor_id}
-                onChange={(e) => setForm({ ...form, advisor_id: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, advisor_id: e.target.value });
+                  clearFieldError("advisor_id");
+                }}
               >
                 <option value="">Crear sin vincular por ahora</option>
                 {availableAdvisors?.map((advisor) => (
@@ -280,6 +390,7 @@ export default function AdminUsers() {
               <p className="mt-1 text-xs text-netland-muted">
                 Solo aparecen perfiles de asesor que aún no tienen usuario.
               </p>
+              <FieldError msg={fieldErrors.advisor_id} />
             </Field>
           )}
           <label className="flex items-center gap-2 text-sm">

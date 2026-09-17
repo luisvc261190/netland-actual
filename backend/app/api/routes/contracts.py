@@ -847,6 +847,7 @@ def get_contract_pdf(
     # Datos bancarios configurados en el proyecto (para depósitos)
     bank_name = contract.project.bank_name if contract.project else None
     bank_account_number = contract.project.bank_account_number if contract.project else None
+    bank_accounts = contract.project.bank_accounts or [] if contract.project else None
 
     pdf = generate_contract_pdf(
         contract_number=contract.contract_number,
@@ -872,6 +873,7 @@ def get_contract_pdf(
         initial_vouchers=initial_vouchers,
         bank_name=bank_name,
         bank_account_number=bank_account_number,
+        bank_accounts=bank_accounts,
     )
 
     # Persistir la URL si Cloudinary está disponible
@@ -1034,13 +1036,24 @@ def emit_contract_document(
     # Incluir la cuenta bancaria del proyecto en el encabezado del documento
     accounts = list(company["company_accounts"])
     project = contract.project
-    if project and (project.bank_name or project.bank_account_number):
-        if project.bank_name and project.bank_account_number:
-            accounts.append(f"{project.bank_name} - N° {project.bank_account_number}")
-        elif project.bank_account_number:
-            accounts.append(f"N° de cuenta {project.bank_account_number}")
-        else:
-            accounts.append(project.bank_name)
+    if project:
+        if project.bank_accounts:
+            for acc in project.bank_accounts:
+                bank = (acc.get("bank") if isinstance(acc, dict) else getattr(acc, "bank", "")) or ""
+                account_number = (acc.get("account_number") if isinstance(acc, dict) else getattr(acc, "account_number", "")) or ""
+                if bank and account_number:
+                    accounts.append(f"{bank} - N° {account_number}")
+                elif account_number:
+                    accounts.append(f"N° de cuenta {account_number}")
+                elif bank:
+                    accounts.append(bank)
+        elif project.bank_name or project.bank_account_number:
+            if project.bank_name and project.bank_account_number:
+                accounts.append(f"{project.bank_name} - N° {project.bank_account_number}")
+            elif project.bank_account_number:
+                accounts.append(f"N° de cuenta {project.bank_account_number}")
+            else:
+                accounts.append(project.bank_name)
 
     pdf = generate_commercial_document_pdf(
         document_type=doc_data.document_type,

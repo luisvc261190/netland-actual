@@ -20,6 +20,7 @@ const DEFAULT_COMPANY: SiteConfig = {
   company_address:
     "Urb. Magisterial Mza. B Lote. 3, (cerca al Grifo Primax) - San Vicente de Cañete, Cañete, Lima, Perú",
   company_bank_accounts: "",
+  late_interest_daily: "0.00",
 };
 
 const PERUVIAN_BANKS = [
@@ -88,10 +89,15 @@ export default function SiteSettings() {
   const [newAccountNumber, setNewAccountNumber] = useState("");
 
   useEffect(() => {
-    if (config?.company_bank_accounts !== undefined) {
-      setBankAccounts(parseAccounts(config.company_bank_accounts));
+    if (config) {
+      setFormData({ ...DEFAULT_COMPANY, ...config });
+      setBankAccounts(
+        config.company_bank_accounts !== undefined
+          ? parseAccounts(config.company_bank_accounts)
+          : []
+      );
     }
-  }, [config?.company_bank_accounts]);
+  }, [config]);
 
   const updateMutation = useMutation({
     mutationFn: (data: SiteConfig) => api.put("/config", data, true),
@@ -471,6 +477,39 @@ export default function SiteSettings() {
                 />
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Cobranzas Section */}
+        <div className="rounded-xl border border-netland-light bg-white p-8 shadow-sm">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-netland-dark">Cobranzas</h2>
+            <p className="text-sm text-netland-muted">
+              Parámetros para los pagos de contratos financiados
+            </p>
+          </div>
+
+          <div className="max-w-md">
+            <label className="mb-2 block text-sm font-semibold text-netland-dark">
+              Interés por mora (S/ por día)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={currentConfig.late_interest_daily || "0.00"}
+              onChange={(e) => handleChange("late_interest_daily", e.target.value)}
+              placeholder="0.00"
+              className="w-full rounded-lg border border-netland-light bg-netland-background px-4 py-3 text-sm outline-none transition-colors focus:border-netland-primary focus:ring-2 focus:ring-netland-primary/20"
+            />
+            <p className="mt-2 flex items-start gap-2 text-xs text-netland-muted">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Monto diario en soles que se registrará como interés cuando una cuota
+                se paga después de su fecha de vencimiento. Coloca 0 para no aplicar
+                interés por mora.
+              </span>
+            </p>
           </div>
         </div>
 

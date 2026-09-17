@@ -162,6 +162,9 @@ export interface Payment {
   is_cancelled: boolean;
   cancelled_at?: string;
   cancellation_reason?: string;
+  late_interest_amount?: number;
+  late_interest_days?: number;
+  late_interest_waived?: boolean;
   created_at: string;
 }
 
@@ -173,6 +176,8 @@ export interface PaymentDetail extends Payment {
     installment_number: number;
     allocated_amount: number;
     due_date: string;
+    late_days: number;
+    late_interest: number;
   }>;
 }
 

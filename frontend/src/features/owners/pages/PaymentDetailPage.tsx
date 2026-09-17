@@ -135,6 +135,26 @@ export default function PaymentDetailPage() {
             <InfoItem label="Transacción" value={payment.transaction_number || "—"} />
             <InfoItem label="Banco" value={payment.bank_name || "—"} />
             <InfoItem label="Observaciones" value={payment.notes || "—"} />
+            {payment.late_interest_days ? (
+              <>
+                <InfoItem
+                  label="Días de atraso"
+                  value={
+                    payment.late_interest_waived
+                      ? `${payment.late_interest_days} (exonerado)`
+                      : payment.late_interest_days
+                  }
+                />
+                <InfoItem
+                  label="Interés de mora"
+                  value={
+                    payment.late_interest_waived ? "Exonerado" : formatSoles(payment.late_interest_amount || 0)
+                  }
+                />
+              </>
+            ) : (
+              <InfoItem label="Interés de mora" value="Sin atraso" />
+            )}
           </dl>
 
           {payment.receipt_url && (
@@ -169,7 +189,7 @@ export default function PaymentDetailPage() {
             </p>
           ) : (
             <Table
-              headers={["Cuota", "Vencimiento", "Monto aplicado"]}
+              headers={["Cuota", "Vencimiento", "Días atraso", "Interés", "Monto aplicado"]}
             >
               {payment.allocations.map((alloc) => (
                   <tr key={alloc.installment_id} className="hover:bg-netland-light/30">
@@ -177,6 +197,20 @@ export default function PaymentDetailPage() {
                       {String(alloc.installment_number).padStart(2, "0")}
                     </td>
                     <td className="px-5 py-2.5 text-sm">{formatDate(alloc.due_date)}</td>
+                    <td className="px-5 py-2.5 text-sm">
+                      {alloc.late_days > 0
+                        ? payment.late_interest_waived
+                          ? `${alloc.late_days} (exonerado)`
+                          : alloc.late_days
+                        : "—"}
+                    </td>
+                    <td className="px-5 py-2.5 text-sm">
+                      {alloc.late_interest > 0
+                        ? payment.late_interest_waived
+                          ? "Exonerado"
+                          : formatSoles(alloc.late_interest)
+                        : "—"}
+                    </td>
                     <td className="px-5 py-2.5 font-medium text-netland-primary">
                       {formatSoles(alloc.allocated_amount)}
                     </td>

@@ -32,6 +32,11 @@ BACKUP_VERSION = 1
 BACKUP_FOLDER = "backups"
 BACKUP_EXTENSION = ".json"
 
+# Tablas que se excluyen del dump y de la restauración. La tabla `backups`
+# guarda el historial de respaldos; si se restaurara junto con el resto de la
+# base de datos, los respaldos creados después del snapshot desaparecerían.
+BACKUP_EXCLUDED_TABLES = {"backups"}
+
 _JSON_PRIMITIVES = (str, int, float, bool)
 
 
@@ -70,9 +75,15 @@ def _from_json_value(value: Any, column_type: Any) -> Any:
 
 
 def _dump_tables(db: Session) -> Dict[str, List[Dict[str, Any]]]:
-    """Serializa todas las tablas del modelo en filas como diccionarios."""
+    """Serializa todas las tablas del modelo en filas como diccionarios.
+
+    Las tablas de `BACKUP_EXCLUDED_TABLES` (historial de respaldos) no se
+    incluyen para que la restauración no borre los respaldos existentes.
+    """
     tables: Dict[str, List[Dict[str, Any]]] = {}
     for table in Base.metadata.sorted_tables:
+        if table.name in BACKUP_EXCLUDED_TABLES:
+            continue
         tables[table.name] = [
             {
                 column.name: _to_json_value(row._mapping[column.name])
@@ -226,12 +237,18 @@ def restore_backup(db: Session, user_id: Optional[int], raw: bytes) -> Dict[str,
 
     try:
         # Eliminar datos: primero las tablas que dependen de otras (hijos).
+        # Las tablas excluidas (`backups`) no se tocan para conservar el
+        # historial de respaldos existente.
         for table in reversed(Base.metadata.sorted_tables):
+            if table.name in BACKUP_EXCLUDED_TABLES:
+                continue
             db.execute(table.delete())
 
         # Reinsertar datos: padres antes que hijos para respetar las FKs.
         restored: Dict[str, int] = {}
         for table in Base.metadata.sorted_tables:
+            if table.name in BACKUP_EXCLUDED_TABLES:
+                continue
             rows = [
                 {
                     key: _from_json_value(value, table.c[key].type)

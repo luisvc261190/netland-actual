@@ -1,5 +1,13 @@
 export type LotStatus = "available" | "reserved" | "sold" | "not_available";
 
+export interface ProjectBankAccount {
+  bank: string;
+  account_number: string;
+  cci: string;
+  account_number_usd: string;
+  cci_usd: string;
+}
+
 export interface Project {
   id: number;
   slug: string;
@@ -23,6 +31,7 @@ export interface Project {
   plan_pdf_url: string;
   bank_name: string;
   bank_account_number: string;
+  bank_accounts: ProjectBankAccount[];
   status: string;
   is_published: boolean;
   legal_info: string;

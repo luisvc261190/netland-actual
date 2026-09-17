@@ -892,6 +892,7 @@ def generate_quote_pdf_endpoint(
     project_name = quote.project.name if quote.project else "Netland"
     bank_name = quote.project.bank_name if quote.project else None
     bank_account_number = quote.project.bank_account_number if quote.project else None
+    bank_accounts = quote.project.bank_accounts or [] if quote.project else None
     lot_code = quote.lot.code if quote.lot else ""
     
     # Calcular descuento
@@ -935,6 +936,7 @@ def generate_quote_pdf_endpoint(
         project_name=project_name,
         bank_name=bank_name,
         bank_account_number=bank_account_number,
+        bank_accounts=bank_accounts,
         lot_code=lot_code,
         area_m2=float(quote.lot.area_m2) if quote.lot and quote.lot.area_m2 else None,
         lot_price=float(quote.lot_price or 0),

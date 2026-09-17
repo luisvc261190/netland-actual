@@ -28,6 +28,7 @@ _COLUMN_MIGRATIONS = [
     ("payments", "late_interest_waived", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("payment_allocations", "late_days", "INTEGER NOT NULL DEFAULT 0"),
     ("payment_allocations", "late_interest", "NUMERIC(12,2) NOT NULL DEFAULT 0"),
+    ("projects", "bank_accounts", "JSON NOT NULL DEFAULT '[]'"),
 ]
 
 

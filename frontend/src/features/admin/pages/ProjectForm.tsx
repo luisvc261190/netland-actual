@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useState } from "react";
-import { Save } from "lucide-react";
+import { Plus, Save, Trash2 } from "lucide-react";
 import { api } from "../../../lib/api";
-import type { Project } from "../../../types";
+import type { Project, ProjectBankAccount } from "../../../types";
 import { PageHeader, Button, Card, Field, Input, Select, Textarea } from "../ui";
 import { useToast } from "../../../components/ui/Toast";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -56,18 +56,54 @@ const emptyProject = {
   og_image: "",
 };
 
+const emptyBankAccount = (): ProjectBankAccount => ({
+  bank: "",
+  account_number: "",
+  cci: "",
+  account_number_usd: "",
+  cci_usd: "",
+});
+
+const normalizeBankAccounts = (accounts: ProjectBankAccount[] | null | undefined): ProjectBankAccount[] =>
+  (accounts ?? [])
+    .map((a) => ({
+      bank: (a.bank ?? "").trim(),
+      account_number: (a.account_number ?? "").trim(),
+      cci: (a.cci ?? "").trim(),
+      account_number_usd: (a.account_number_usd ?? "").trim(),
+      cci_usd: (a.cci_usd ?? "").trim(),
+    }))
+    .filter(
+      (a) => a.bank || a.account_number || a.cci || a.account_number_usd || a.cci_usd
+    );
+
 export default function ProjectForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyProject);
+  const [bankAccounts, setBankAccounts] = useState<ProjectBankAccount[]>([emptyBankAccount()]);
 
   const { isLoading } = useQuery({
     queryKey: ["project-form", id],
     queryFn: async ({ signal }) => {
       if (!id) return null;
       const project = await api.get<Project>(`/projects/${id}`, false, signal);
+      const stored = project.bank_accounts?.length
+        ? normalizeBankAccounts(project.bank_accounts)
+        : project.bank_name
+          ? [
+              {
+                bank: project.bank_name || "",
+                account_number: project.bank_account_number || "",
+                cci: "",
+                account_number_usd: "",
+                cci_usd: "",
+              },
+            ]
+          : [emptyBankAccount()];
+      setBankAccounts(stored);
       setForm({
         slug: project.slug,
         name: project.name,
@@ -100,10 +136,19 @@ export default function ProjectForm() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      id
-        ? api.put<Project>(`/projects/${id}`, form, true)
-        : api.post<Project>("/projects", form, true),
+    mutationFn: () => {
+      const bank_accounts = normalizeBankAccounts(bankAccounts);
+      const primary = bank_accounts[0];
+      const payload = {
+        ...form,
+        bank_accounts,
+        bank_name: primary?.bank ?? "",
+        bank_account_number: primary?.account_number ?? "",
+      };
+      return id
+        ? api.put<Project>(`/projects/${id}`, payload, true)
+        : api.post<Project>("/projects", payload, true);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["projects-admin"] });
@@ -115,6 +160,21 @@ export default function ProjectForm() {
 
   const set = (key: keyof typeof emptyProject, value: string | boolean) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  const updateBankAccount = (
+    index: number,
+    field: keyof ProjectBankAccount,
+    value: string
+  ) =>
+    setBankAccounts((prev) =>
+      prev.map((acc, i) => (i === index ? { ...acc, [field]: value } : acc))
+    );
+
+  const addBankAccount = () =>
+    setBankAccounts((prev) => [...prev, emptyBankAccount()]);
+
+  const removeBankAccount = (index: number) =>
+    setBankAccounts((prev) => prev.filter((_, i) => i !== index));
 
   if (isLoading) return <Skeleton className="h-96 rounded-lg" />;
 
@@ -181,43 +241,107 @@ export default function ProjectForm() {
           <Card className="space-y-4">
             <h3 className="font-display text-xl font-semibold text-netland-dark">Datos bancarios</h3>
             <p className="text-xs text-netland-muted">
-              El banco y el número de cuenta se incluirán automáticamente en las
+              El banco y las cuentas se incluirán automáticamente en las
               cotizaciones y contratos de este proyecto, para que tus clientes
-              sepan dónde depositar.
+              sepan dónde depositar. Puedes registrar varios bancos y, en cada
+              uno, una cuenta en soles y/o en dólares con su CCI.
             </p>
-            <Field label="Banco">
-              <Select
-                value={form.bank_name}
-                onChange={(e) => set("bank_name", e.target.value)}
-              >
-                <option value="">Sin banco configurado</option>
-                {PERUVIAN_BANKS.map((bank) => (
-                  <option key={bank} value={bank}>
-                    {bank}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field
-              label="Número de cuenta"
-              hint="Ej: 191-1234567-0-45 (puede incluir guiones)"
-            >
-              <Input
-                value={form.bank_account_number}
-                onChange={(e) => set("bank_account_number", e.target.value)}
-                placeholder="Número de cuenta para depósitos"
-                disabled={!form.bank_name}
-              />
-            </Field>
-            {form.bank_name && form.bank_account_number && (
-              <div className="flex items-center gap-2 rounded-lg bg-netland-light/60 px-4 py-3">
-                <div className="text-sm">
-                  <span className="font-semibold text-netland-dark">{form.bank_name}</span>
-                  <span className="text-netland-muted"> · N° cuenta: </span>
-                  <span className="font-bold text-netland-primary">{form.bank_account_number}</span>
-                </div>
+
+            {bankAccounts.length === 0 && (
+              <div className="rounded-lg border border-dashed border-netland-light px-4 py-6 text-center text-sm text-netland-muted">
+                Aún no hay cuentas bancarias registradas.
               </div>
             )}
+
+            {bankAccounts.map((acc, index) => (
+              <div
+                key={index}
+                className="space-y-4 rounded-xl border border-netland-light bg-netland-background/50 p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-netland-dark">
+                    Cuenta bancaria {index + 1}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => removeBankAccount(index)}
+                    disabled={bankAccounts.length === 1}
+                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold text-netland-muted transition-colors enabled:hover:bg-red-50 enabled:hover:text-red-600 disabled:opacity-40"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Quitar
+                  </button>
+                </div>
+
+                <Field label="Banco">
+                  <Select
+                    value={acc.bank}
+                    onChange={(e) => updateBankAccount(index, "bank", e.target.value)}
+                  >
+                    <option value="">Selecciona un banco</option>
+                    {PERUVIAN_BANKS.map((bank) => (
+                      <option key={bank} value={bank}>
+                        {bank}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Field
+                    label="Cuenta en soles (S/)"
+                    hint="Ej: 191-1234567-0-45"
+                  >
+                    <Input
+                      value={acc.account_number}
+                      onChange={(e) => updateBankAccount(index, "account_number", e.target.value)}
+                      placeholder="Número de cuenta en soles"
+                    />
+                  </Field>
+                  <Field
+                    label="CCI en soles"
+                    hint="20 dígitos (opcional)"
+                  >
+                    <Input
+                      value={acc.cci}
+                      onChange={(e) => updateBankAccount(index, "cci", e.target.value)}
+                      placeholder="Código interbancario"
+                      maxLength={20}
+                    />
+                  </Field>
+                  <Field
+                    label="Cuenta en dólares (US$)"
+                    hint="Si la tienes (opcional)"
+                  >
+                    <Input
+                      value={acc.account_number_usd}
+                      onChange={(e) => updateBankAccount(index, "account_number_usd", e.target.value)}
+                      placeholder="Número de cuenta en dólares"
+                    />
+                  </Field>
+                  <Field
+                    label="CCI en dólares"
+                    hint="20 dígitos (opcional)"
+                  >
+                    <Input
+                      value={acc.cci_usd}
+                      onChange={(e) => updateBankAccount(index, "cci_usd", e.target.value)}
+                      placeholder="Código interbancario"
+                      maxLength={20}
+                    />
+                  </Field>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={addBankAccount}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-netland-primary/40 bg-netland-light/40 px-3 py-2 text-sm font-semibold text-netland-primary transition-colors hover:bg-netland-light"
+            >
+              <Plus className="h-4 w-4" />
+              Agregar otro banco
+            </button>
           </Card>
 
           <Card className="space-y-4">

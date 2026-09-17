@@ -259,13 +259,24 @@ def generate_sale_pdf(
             if line.strip()
         ]
         project = contract.project
-        if project and (project.bank_name or project.bank_account_number):
-            if project.bank_name and project.bank_account_number:
-                accounts.append(f"{project.bank_name} - N° {project.bank_account_number}")
-            elif project.bank_account_number:
-                accounts.append(f"N° de cuenta {project.bank_account_number}")
-            else:
-                accounts.append(project.bank_name)
+        if project:
+            if project.bank_accounts:
+                for acc in project.bank_accounts:
+                    bank = (acc.get("bank") if isinstance(acc, dict) else getattr(acc, "bank", "")) or ""
+                    account_number = (acc.get("account_number") if isinstance(acc, dict) else getattr(acc, "account_number", "")) or ""
+                    if bank and account_number:
+                        accounts.append(f"{bank} - N° {account_number}")
+                    elif account_number:
+                        accounts.append(f"N° de cuenta {account_number}")
+                    elif bank:
+                        accounts.append(bank)
+            elif project.bank_name or project.bank_account_number:
+                if project.bank_name and project.bank_account_number:
+                    accounts.append(f"{project.bank_name} - N° {project.bank_account_number}")
+                elif project.bank_account_number:
+                    accounts.append(f"N° de cuenta {project.bank_account_number}")
+                else:
+                    accounts.append(project.bank_name)
 
         pdf = generate_commercial_document_pdf(
             document_type="venta",

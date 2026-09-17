@@ -28,8 +28,22 @@ from app.schemas.project import (
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
+def _sync_bank_fields(project: Project) -> None:
+    """Mantiene bank_name/bank_account_number sincronizados con la primera
+    cuenta de bank_accounts (campos heredados usados por PDFs e integraciones)."""
+    accounts = project.bank_accounts or []
+    if accounts:
+        first = accounts[0]
+        project.bank_name = (first or {}).get("bank") or ""
+        project.bank_account_number = (first or {}).get("account_number") or ""
+    else:
+        project.bank_name = ""
+        project.bank_account_number = ""
+
+
 def _project_out(project: Project, db: Session) -> ProjectOut:
     out = ProjectOut.model_validate(project)
+    out.bank_accounts = project.bank_accounts or []
     out.blocks_count = db.query(func.count(Block.id)).filter(Block.project_id == project.id).scalar() or 0
     out.lots_count = db.query(func.count(Lot.id)).filter(Lot.project_id == project.id).scalar() or 0
     out.available_count = (
@@ -77,6 +91,7 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)):
     if db.query(Project).filter(Project.slug == payload.slug).first():
         raise HTTPException(status_code=400, detail="Ya existe un proyecto con ese slug.")
     project = Project(**payload.model_dump())
+    _sync_bank_fields(project)
     db.add(project)
     db.commit()
     db.refresh(project)
@@ -86,8 +101,11 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)):
 @router.put("/{project_id}", response_model=ProjectOut, dependencies=[Depends(require_admin)])
 def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db)):
     project = get_project_or_404(db, project_id)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    for key, value in data.items():
         setattr(project, key, value)
+    if "bank_accounts" in data:
+        _sync_bank_fields(project)
     db.commit()
     db.refresh(project)
     return _project_out(project, db)

@@ -4,6 +4,20 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ProjectBankAccount(BaseModel):
+    """Cuenta bancaria de depósito de un proyecto.
+
+    Un mismo banco puede tener cuenta en soles y en dólares, cada una con
+    su propio CCI (código de cuenta interbancario de 20 dígitos).
+    """
+
+    bank: str = ""
+    account_number: str = ""
+    cci: str = ""
+    account_number_usd: str = ""
+    cci_usd: str = ""
+
+
 class ProjectBase(BaseModel):
     slug: str
     name: str
@@ -26,6 +40,7 @@ class ProjectBase(BaseModel):
     plan_pdf_url: str = ""
     bank_name: str = ""
     bank_account_number: str = ""
+    bank_accounts: list[ProjectBankAccount] = []
     status: str = "active"
     is_published: bool = True
     legal_info: str = ""
@@ -60,6 +75,7 @@ class ProjectUpdate(BaseModel):
     plan_pdf_url: str | None = None
     bank_name: str | None = None
     bank_account_number: str | None = None
+    bank_accounts: list[ProjectBankAccount] | None = None
     status: str | None = None
     is_published: bool | None = None
     legal_info: str | None = None

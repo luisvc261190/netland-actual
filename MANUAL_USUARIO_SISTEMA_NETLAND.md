@@ -233,6 +233,17 @@ Al iniciar sesión verás el panel principal con:
   - Cronograma de pagos
   - Historial de pagos
 
+### Refinanciar cronograma (solo a solicitud del cliente)
+1. Abrir el **detalle del contrato** financiado
+2. Click en **"Refinanciar"** (botón junto a "Registrar Pago")
+3. Indicar:
+   - **Fecha de inicio** del nuevo cronograma
+   - **Número de cuotas** nuevas en las que se repartirá el saldo pendiente
+4. Confirmar la operación cuando el sistema lo solicite
+- Las cuotas ya **pagadas se mantienen**; solo se redistribuye el saldo pendiente en las cuotas nuevas.
+- Solo se puede aplicar si el contrato está activo, el financiamiento existe y no hay **pagos parciales** sobre una misma cuota. Si hay pagos parciales, primero se deben completar esas cuotas.
+- Se registra automáticamente una anotación **"[REFINANCIADO]"** en las observaciones del contrato.
+
 ---
 
 ## 💳 13. REGISTRAR PAGOS
@@ -254,6 +265,17 @@ Al iniciar sesión verás el panel principal con:
   - Primero: Cuotas vencidas (más antiguas primero)
   - Luego: Cuotas pendientes por vencer
 
+### Interés por mora (cuotas vencidas)
+- Si el pago se registra **después de la fecha de vencimiento**, el sistema calcula automáticamente un **interés por mora** según la configuración
+  (importe diario en soles, ver sección **Configuración**).
+- En el modal "Registrar pago" se muestra, por cada cuota con atraso:
+  - **"Atraso X días"** y el **interés estimado** (`S/ diario × días de atraso`).
+- Antes de confirmar se muestra el total de **"Interés por mora estimado"**.
+- Si el cliente ha sido exonerado (por acuerdo comercial), marcar la casilla **"Exonerar interés de mora para este pago"** antes de registrar.
+- El interés registrado queda guardado en el **detalle del pago** (días de atraso, interés y si fue exonerado) para control del área de cobranzas.
+  No se descuenta del monto recibido: el pago se capitaliza en su totalidad a las cuotas.
+- El interés por mora se puede **anular** junto con el pago (opción "Anular pago").
+
 ### Anular un pago (solo con permiso)
 1. Click en el botón rojo de **anular**
 2. Ingresar motivo de anulación
@@ -272,6 +294,11 @@ Al iniciar sesión verás el panel principal con:
    - WhatsApp corporativo
    - Dirección
    - Horarios
+
+### Interés por mora (Cobranzas)
+- En la sección **"Cobranzas"** de Configuración se define el **"Interés por mora (S/ por día)"**.
+- Es el importe diario en soles que se suma como interés cuando una cuota se paga después de su vencimiento.
+- Colocar **0** para no aplicar interés por mora.
 
 ### Redes sociales
 - Actualizar enlaces de Facebook, Instagram, LinkedIn

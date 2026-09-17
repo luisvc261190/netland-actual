@@ -184,14 +184,18 @@ export default function AdminProjects() {
                   <span className="line-clamp-1">{project.location || "Sin ubicación"}</span>
                 </p>
 
-                {project.bank_name && (
+                {(project.bank_name || (project.bank_accounts?.length ?? 0) > 0) && (
                   <p className="mb-3 flex items-center gap-1.5 text-xs text-netland-muted">
                     <Landmark className="h-3.5 w-3.5 shrink-0 text-netland-accent" />
                     <span className="line-clamp-1">
-                      {project.bank_name}
-                      {project.bank_account_number
-                        ? ` · N° ${project.bank_account_number}`
-                        : ""}
+                      {project.bank_accounts?.length
+                        ? project.bank_accounts
+                            .map(
+                              (acc) =>
+                                `${acc.bank}${acc.account_number ? ` · N° ${acc.account_number}` : ""}`
+                            )
+                            .join(" · ")
+                        : `${project.bank_name}${project.bank_account_number ? ` · N° ${project.bank_account_number}` : ""}`}
                     </span>
                   </p>
                 )}

@@ -52,6 +52,7 @@ import {
 interface AllocRow {
   installment_id: number;
   installment_number: number;
+  due_date: string;
   balance: number;
   amount: string;
   checked: boolean;
@@ -111,8 +112,14 @@ export default function ContractDetailPage() {
     notes: "",
   });
   const [allocations, setAllocations] = useState<AllocRow[]>([]);
+  const [exonerateInterest, setExonerateInterest] = useState(false);
   const [emitOpen, setEmitOpen] = useState(false);
   const [emitForm, setEmitForm] = useState({ document_type: "proforma", description: "" });
+  const [refinanceOpen, setRefinanceOpen] = useState(false);
+  const [refinanceForm, setRefinanceForm] = useState({
+    start_date: new Date().toISOString().split("T")[0],
+    number_of_installments: "",
+  });
   const [pdfLoading, setPdfLoading] = useState(false);
   const [schedulePdfLoading, setSchedulePdfLoading] = useState(false);
 
@@ -154,6 +161,16 @@ export default function ContractDetailPage() {
     enabled: !!contractId,
   });
 
+  const { data: lateConfig } = useQuery({
+    queryKey: ["late-interest-config"],
+    queryFn: ({ signal }) =>
+      api.get<{ daily_rate: number; enabled: boolean }>(
+        `/payments/late-interest-config`,
+        true,
+        signal
+      ),
+  });
+
   // Registrar pago
   const savePayment = useMutation({
     mutationFn: (payload: any) => api.post("/payments", payload, true),
@@ -181,6 +198,53 @@ export default function ContractDetailPage() {
     },
     onError: (e: Error) => toast(e.message, "error"),
   });
+
+  // Refinanciar cronograma (solo a solicitud explícita del cliente)
+  const refinanceContract = useMutation({
+    mutationFn: (payload: { start_date: string; number_of_installments: number }) =>
+      api.post(`/contracts/${contractId}/refinance`, payload, true),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contract"] });
+      queryClient.invalidateQueries({ queryKey: ["contract-schedule"] });
+      queryClient.invalidateQueries({ queryKey: ["contract-financing"] });
+      queryClient.invalidateQueries({ queryKey: ["collections-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["collections-items"] });
+      toast("Cronograma refinanciado correctamente");
+      setRefinanceOpen(false);
+      setRefinanceForm({
+        start_date: new Date().toISOString().split("T")[0],
+        number_of_installments: "",
+      });
+    },
+    onError: (e: Error) => toast(e.message, "error"),
+  });
+
+  const submitRefinance = async () => {
+    const num = parseInt(refinanceForm.number_of_installments, 10);
+    if (!refinanceForm.start_date) {
+      toast("Indica la fecha de inicio del nuevo cronograma", "error");
+      return;
+    }
+    if (!num || num <= 0) {
+      toast("Indica el número de cuotas del nuevo cronograma", "error");
+      return;
+    }
+    const confirmed = await confirm({
+      title: "Refinanciar cronograma",
+      message:
+        `Se redistribuirá el saldo pendiente (${formatSoles(totalBalance)}) en ${num} cuotas ` +
+        `desde el ${refinanceForm.start_date}. Las cuotas pagadas se mantienen.\n\n` +
+        "Esta acción solo se realiza a solicitud explícita del cliente y no se puede deshacer. ¿Continuar?",
+      confirmText: "Sí, refinanciar",
+      cancelText: "Cancelar",
+      danger: true,
+    });
+    if (!confirmed) return;
+    refinanceContract.mutate({
+      start_date: refinanceForm.start_date,
+      number_of_installments: num,
+    });
+  };
 
   // Anular contrato
   const cancelContract = useMutation({
@@ -266,6 +330,7 @@ export default function ContractDetailPage() {
       notes: "",
     });
     setAllocations([]);
+    setExonerateInterest(false);
   };
 
   const openPaymentModal = () => {
@@ -277,6 +342,7 @@ export default function ContractDetailPage() {
       pending.map((i) => ({
         installment_id: i.id,
         installment_number: i.installment_number,
+        due_date: i.due_date,
         balance: i.balance,
         amount: i.balance.toString(),
         checked: false,
@@ -401,6 +467,7 @@ export default function ContractDetailPage() {
       bank_name: paymentForm.bank_name || null,
       notes: paymentForm.notes || null,
       allocations: allocPayload,
+      exonerate_late_interest: exonerateInterest,
     };
 
     savePayment.mutate(payload);
@@ -447,6 +514,34 @@ export default function ContractDetailPage() {
   const totalScheduled = installments.reduce((sum, i) => sum + i.scheduled_amount, 0);
   const totalPaidSchedule = installments.reduce((sum, i) => sum + i.paid_amount, 0);
   const totalBalance = installments.reduce((sum, i) => sum + i.balance, 0);
+
+  // Interés por mora (S/ diario configurable): vista previa para el modal de pago
+  const dailyRate =
+    lateConfig?.enabled && lateConfig.daily_rate > 0 ? lateConfig.daily_rate : 0;
+  const refDate = paymentForm.payment_date || new Date().toISOString().split("T")[0];
+  const lateInfo = (due: string | null | undefined) => {
+    if (!due || !dailyRate) return { days: 0, interest: 0 };
+    const dueMs = new Date(due).getTime();
+    const refMs = new Date(refDate).getTime();
+    if (Number.isNaN(dueMs) || Number.isNaN(refMs)) return { days: 0, interest: 0 };
+    const days = Math.max(0, Math.floor((refMs - dueMs) / 86400000));
+    return { days, interest: Number((days * dailyRate).toFixed(2)) };
+  };
+  const checkedWithInterest = allocations.filter((a) => a.checked);
+  const interestPreview = checkedWithInterest.reduce(
+    (sum, a) => sum + lateInfo(a.due_date).interest,
+    0
+  );
+  // Si no se marcó ninguna cuota, el pago se aplica a la más antigua con saldo.
+  const overflowPreview =
+    checkedWithInterest.length === 0
+      ? (schedule || []).find((i) =>
+          ["pendiente", "parcial", "vencida"].includes(i.status)
+        )
+      : undefined;
+  const interestPreviewTotal =
+    interestPreview +
+    (overflowPreview ? lateInfo(overflowPreview.due_date).interest : 0);
 
   // La última cuota absorbe la diferencia por redondeo para que el saldo cierre en 0.
   const roundingDiff = financedAmount - totalScheduled;
@@ -503,6 +598,17 @@ export default function ContractDetailPage() {
                 >
                   <CalendarDays className="h-4 w-4" />
                   {generateSchedule.isPending ? "Generando..." : "Generar cronograma"}
+                </Button>
+              )}
+            {contract.payment_modality === "financiado" &&
+              installments.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => setRefinanceOpen(true)}
+                  title="Refinanciar cronograma (solo a solicitud del cliente)"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Refinanciar
                 </Button>
               )}
             <Button onClick={openPaymentModal} disabled={contract.status !== "activo"}>
@@ -1050,6 +1156,11 @@ export default function ContractDetailPage() {
                       Cuota {String(alloc.installment_number).padStart(2, "0")} / {totalInstallments}
                     </span>
                     <span className="w-28 text-xs text-netland-muted">Saldo: {formatSoles(alloc.balance)}</span>
+                    {lateInfo(alloc.due_date).days > 0 && (
+                      <span className="text-xs text-amber-600">
+                        Atraso {lateInfo(alloc.due_date).days}d · +{formatSoles(lateInfo(alloc.due_date).interest)}
+                      </span>
+                    )}
                     <input
                       type="number"
                       step="0.01"
@@ -1070,6 +1181,28 @@ export default function ContractDetailPage() {
                   </label>
                 ))}
               </div>
+            </div>
+          )}
+
+          {contract.payment_modality === "financiado" && allocations.length > 0 && dailyRate > 0 && interestPreviewTotal > 0 && (
+            <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:col-span-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-amber-800">
+                  Interés por mora estimado · {formatSoles(interestPreviewTotal)}
+                </span>
+                <span className="text-xs text-amber-700">
+                  {formatSoles(dailyRate)}/día por cuota vencida
+                </span>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-amber-900">
+                <input
+                  type="checkbox"
+                  checked={exonerateInterest}
+                  onChange={(e) => setExonerateInterest(e.target.checked)}
+                  className="h-4 w-4 rounded border-amber-300 accent-netland-primary"
+                />
+                Exonerar interés de mora para este pago
+              </label>
             </div>
           )}
 
@@ -1114,6 +1247,57 @@ export default function ContractDetailPage() {
             </Button>
             <Button onClick={() => emitDocument.mutate(emitForm)} disabled={emitDocument.isPending}>
               {emitDocument.isPending ? "Emitiendo..." : "Emitir y descargar"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de refinanciamiento del cronograma */}
+      <Modal
+        open={refinanceOpen}
+        onClose={() => setRefinanceOpen(false)}
+        title={`Refinanciar cronograma · ${contract.contract_number}`}
+      >
+        <div className="space-y-4 p-6">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Se redistribuirá el saldo pendiente de{" "}
+            <strong>{formatSoles(totalBalance)}</strong> en las cuotas nuevas. Las
+            cuotas ya pagadas se mantienen intactas. Esta acción solo se realiza a
+            solicitud explícita del cliente y no se puede deshacer.
+          </div>
+          <Field label="Fecha de inicio del nuevo cronograma">
+            <Input
+              type="date"
+              value={refinanceForm.start_date}
+              onChange={(e) =>
+                setRefinanceForm({ ...refinanceForm, start_date: e.target.value })
+              }
+            />
+          </Field>
+          <Field label="Número de cuotas">
+            <Input
+              type="number"
+              min="1"
+              value={refinanceForm.number_of_installments}
+              onChange={(e) =>
+                setRefinanceForm({
+                  ...refinanceForm,
+                  number_of_installments: e.target.value,
+                })
+              }
+              placeholder={`Ej: ${Math.max(pendingCount, 1)}`}
+            />
+          </Field>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setRefinanceOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={submitRefinance}
+              disabled={refinanceContract.isPending}
+            >
+              {refinanceContract.isPending ? "Refinanciando..." : "Refinanciar"}
             </Button>
           </div>
         </div>

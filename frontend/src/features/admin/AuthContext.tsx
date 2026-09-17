@@ -8,6 +8,7 @@ import {
 } from "react";
 import { api, authStorage } from "../../lib/api";
 import { API_URL } from "../../lib/constants";
+import { queryClient } from "../../lib/queryClient";
 import type { User } from "../../types";
 
 interface AuthContextValue {
@@ -45,6 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(detail);
     }
     const data = await response.json();
+    // Si se inicia sesión como otro usuario sin cerrar la sesión previa,
+    // se descarta la caché para no mostrar datos del usuario anterior.
+    queryClient.clear();
     authStorage.setSession(data.access_token, data.user);
     setUser(data.user);
   }, []);
@@ -61,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
     authStorage.clear();
+    // Limpia la caché de consultas para que no persistan datos del usuario anterior.
+    queryClient.clear();
     setUser(null);
   }, []);
 

@@ -50,6 +50,7 @@ export default function PaymentsPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<PaymentFormState>(emptyForm);
+  const [exonerateInterest, setExonerateInterest] = useState(false);
 
   // Fetch payments
   const {
@@ -104,6 +105,7 @@ export default function PaymentsPage() {
 
   const openCreate = () => {
     setForm(emptyForm);
+    setExonerateInterest(false);
     setModalOpen(true);
   };
 
@@ -133,6 +135,7 @@ export default function PaymentsPage() {
       transaction_number: form.transaction_number || null,
       bank_name: form.bank_name || null,
       notes: form.notes || null,
+      exonerate_late_interest: exonerateInterest,
     };
 
     saveMutation.mutate(payload);
@@ -374,6 +377,22 @@ export default function PaymentsPage() {
               placeholder="Opcional"
             />
           </Field>
+
+          <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:col-span-2">
+            <span className="text-xs text-amber-800">
+              Si el contrato tiene cuotas vencidas, el pago se aplicará a la cuota
+              pendiente más antigua y se registrará el interés de mora configurado.
+            </span>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-amber-900">
+              <input
+                type="checkbox"
+                checked={exonerateInterest}
+                onChange={(e) => setExonerateInterest(e.target.checked)}
+                className="h-4 w-4 rounded border-amber-300 accent-netland-primary"
+              />
+              Exonerar interés de mora para este pago
+            </label>
+          </div>
 
           <div className="flex justify-end gap-3 sm:col-span-2">
             <Button variant="outline" onClick={() => setModalOpen(false)}>
