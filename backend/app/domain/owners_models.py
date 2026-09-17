@@ -586,6 +586,11 @@ class Payment(Base):
         nullable=True
     )
 
+    # Interés por mora (calculado al momento del pago)
+    late_interest_amount = Column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
+    late_interest_days = Column(Integer, nullable=False, default=0)
+    late_interest_waived = Column(Boolean, nullable=False, default=False)
+
     # Relaciones
     contract = relationship("Contract", backref="payments")
     payer = relationship("Owner", back_populates="payments_made", foreign_keys=[payer_id])
@@ -629,6 +634,10 @@ class PaymentAllocation(Base):
     
     # Monto aplicado a esta cuota
     allocated_amount = Column(Numeric(12, 2), nullable=False)
+    
+    # Días de atraso e interés por mora de esta cuota al momento del pago
+    late_days = Column(Integer, nullable=False, default=0)
+    late_interest = Column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
     
     # Auditoría
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -361,6 +361,11 @@ class PaymentCreate(PaymentBase):
         default=None,
         description="Lista de {installment_id, amount} o null para aplicación automática"
     )
+    # Interés por mora
+    exonerate_late_interest: bool = Field(
+        default=False,
+        description="True para no cobrar el interés por mora de las cuotas vencidas"
+    )
 
 
 class PaymentUpdate(BaseModel):
@@ -383,6 +388,9 @@ class PaymentResponse(PaymentBase):
     is_cancelled: bool
     cancelled_at: Optional[datetime] = None
     cancellation_reason: Optional[str] = None
+    late_interest_amount: Decimal = Decimal("0.00")
+    late_interest_days: int = 0
+    late_interest_waived: bool = False
     created_at: datetime
     
     class Config:
@@ -394,6 +402,12 @@ class PaymentDetail(PaymentResponse):
     payer_name: str
     contract_number: str
     allocations: List[dict] = []
+
+
+class RefinanceCreate(BaseModel):
+    """Refinanciamiento de un contrato financiado, a solicitud del cliente"""
+    start_date: date
+    number_of_installments: int = Field(..., gt=0)
 
 
 # ============================================================================

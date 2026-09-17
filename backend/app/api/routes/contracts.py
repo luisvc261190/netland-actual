@@ -40,6 +40,7 @@ from app.schemas.owners import (
     FinancingPlanDetail,
     ContractDocumentCreate,
     ContractDocumentResponse,
+    RefinanceCreate,
 )
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
@@ -674,6 +675,106 @@ def generate_payment_schedule(
     return {
         "message": "Cronograma generado exitosamente",
         "installments_created": financing.number_of_installments
+    }
+
+
+@router.post("/{contract_id}/refinance", response_model=dict)
+def refinance_contract(
+    contract_id: int,
+    refinance_data: RefinanceCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Refinanciar un contrato financiado, únicamente a solicitud del cliente.
+
+    Reemplaza el cronograma de cuotas pendientes por uno nuevo que redistribuye el
+    saldo pendiente en el número de cuotas indicado. Las cuotas ya pagadas se
+    conservan y el nuevo cronograma continúa la numeración.
+    """
+    from sqlalchemy import func
+
+    contract = db.query(Contract).filter(Contract.id == contract_id).first()
+    if not contract:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contrato no encontrado"
+        )
+
+    if contract.status != "activo":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se puede refinanciar un contrato activo"
+        )
+
+    if contract.payment_modality != "financiado":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El contrato no es de modalidad financiada"
+        )
+
+    financing = db.query(FinancingPlan).filter(
+        FinancingPlan.contract_id == contract_id
+    ).first()
+    if not financing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Plan de financiamiento no encontrado"
+        )
+
+    unpaid = db.query(Installment).filter(
+        Installment.financing_plan_id == financing.id,
+        Installment.status.in_(["pendiente", "parcial", "vencida"])
+    ).order_by(Installment.installment_number).all()
+
+    if not unpaid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No hay cuotas pendientes para refinanciar"
+        )
+
+    if any(i.paid_amount > 0 for i in unpaid):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "No se puede refinanciar: existen cuotas con pagos parciales. "
+                "Regulariza primero esas cuotas."
+            )
+        )
+
+    remaining = sum((i.balance for i in unpaid), Decimal("0.00"))
+    paid_count = db.query(func.count(Installment.id)).filter(
+        Installment.financing_plan_id == financing.id,
+        Installment.status == "pagada"
+    ).scalar()
+
+    # Eliminar cuotas pendientes (no tienen pagos aplicados) y regenerar el cronograma.
+    for inst in unpaid:
+        db.delete(inst)
+    db.flush()
+
+    FinancingService.refinance_schedule(
+        db,
+        financing,
+        paid_count=paid_count,
+        start_date=refinance_data.start_date,
+        num_installments=refinance_data.number_of_installments,
+        remaining=remaining,
+    )
+
+    contract.notes = (contract.notes or "") + (
+        f"\n\n[REFINANCIADO {datetime.now().strftime('%Y-%m-%d')}] A solicitud del cliente: "
+        f"{len(unpaid)} cuota(s) pendiente(s) por S/ {remaining:,.2f} reprogramadas a "
+        f"{refinance_data.number_of_installments} cuota(s) desde "
+        f"{refinance_data.start_date.isoformat()}."
+    )
+    contract.updated_by = current_user.id
+
+    db.commit()
+
+    return {
+        "message": "Cronograma refinanciado correctamente",
+        "installments_created": refinance_data.number_of_installments,
+        "remaining_balance": float(remaining),
     }
 
 

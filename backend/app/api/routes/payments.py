@@ -29,13 +29,14 @@ def register_payment(
     current_user: User = Depends(get_current_user)
 ):
     """Registrar nuevo pago"""
-    data_dict = payment_data.dict(exclude={"allocations"})
+    data_dict = payment_data.dict(exclude={"allocations", "exonerate_late_interest"})
     
     try:
         payment = PaymentsService.register_payment(
             db,
             data_dict,
             allocations=payment_data.allocations,
+            exonerate_late_interest=payment_data.exonerate_late_interest,
             user_id=current_user.id
         )
         return payment
@@ -44,6 +45,16 @@ def register_payment(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.get("/late-interest-config", response_model=dict)
+def late_interest_config(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Configuración del interés diario por mora (visible para el módulo de cobranzas)."""
+    daily = PaymentsService.get_late_interest_daily(db)
+    return {"daily_rate": float(daily), "enabled": daily > 0}
 
 
 @router.get("/", response_model=List[dict])
@@ -126,6 +137,9 @@ def list_payments(
             "cancelled_at": p.cancelled_at.isoformat() if p.cancelled_at else None,
             "cancellation_reason": p.cancellation_reason,
             "receipt_url": p.receipt_url,
+            "late_interest_amount": float(p.late_interest_amount),
+            "late_interest_days": p.late_interest_days,
+            "late_interest_waived": p.late_interest_waived,
             "created_at": p.created_at.isoformat(),
         })
     
@@ -163,7 +177,9 @@ def get_payment(
             "installment_id": a.installment_id,
             "installment_number": a.installment.installment_number,
             "allocated_amount": float(a.allocated_amount),
-            "due_date": a.installment.due_date.isoformat()
+            "due_date": a.installment.due_date.isoformat(),
+            "late_days": a.late_days,
+            "late_interest": float(a.late_interest)
         }
         for a in allocations
     ]
@@ -251,6 +267,9 @@ def get_payment_history(
             "transaction_number": p.transaction_number,
             "is_cancelled": p.is_cancelled,
             "notes": p.notes,
+            "late_interest_amount": float(p.late_interest_amount),
+            "late_interest_days": p.late_interest_days,
+            "late_interest_waived": p.late_interest_waived,
             "created_at": p.created_at.isoformat()
         }
         for p in payments

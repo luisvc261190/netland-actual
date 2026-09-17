@@ -9,7 +9,7 @@ Uso:
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import Base, SessionLocal, engine, ensure_column_migrations
 from app.core.security import hash_password
 from app.domain.models import (
     Advisor,
@@ -120,6 +120,7 @@ def _seed_project(db: Session, project_data: dict) -> Project:
 
 def run() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_column_migrations()
     db = SessionLocal()
 
     try:

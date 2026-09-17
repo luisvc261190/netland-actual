@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -26,6 +27,22 @@ def _forbidden() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="No tienes permisos para realizar esta acción.",
+    )
+
+
+def _email_in_use(db: Session, email: str, exclude_id: int | None = None) -> User | None:
+    """Busca si el correo (sin distinción de mayúsculas) pertenece a otro usuario."""
+    normalized = email.strip().lower()
+    query = db.query(User).filter(func.lower(User.email) == normalized, User.id != (exclude_id or -1))
+    return query.first()
+
+
+def _duplicate_email_detail(email: str, existing: User) -> str:
+    return (
+        f"El correo «{email.strip().lower()}» ya está registrado como usuario del sistema "
+        f"(cuenta de acceso de {existing.name}). En el sistema, el correo sirve como "
+        "credencial de inicio de sesión y debe ser único. Usa otro correo o edita directamente "
+        "la cuenta existente."
     )
 
 
@@ -78,9 +95,16 @@ def create_user(
 ):
     role = db.query(RoleModel).filter(RoleModel.name == payload.role).first()
     if not role:
-        raise HTTPException(status_code=400, detail="Rol inválido.")
-    if db.query(User).filter(User.email == payload.email.lower()).first():
-        raise HTTPException(status_code=400, detail="El correo ya está registrado.")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"El rol «{payload.role}» no existe. Selecciona uno de los roles "
+                "disponibles en el formulario."
+            ),
+        )
+    existing_email = _email_in_use(db, payload.email)
+    if existing_email:
+        raise HTTPException(status_code=409, detail=_duplicate_email_detail(payload.email, existing_email))
 
     # Un ADMIN no puede crear roles privilegiados ni exceder su cuota asignada.
     if current_user.role.name == "ADMIN":
@@ -103,12 +127,31 @@ def create_user(
     advisor = None
     if payload.advisor_id is not None:
         if payload.role != "ASESOR":
-            raise HTTPException(status_code=400, detail="Solo los usuarios asesores pueden vincularse a un asesor.")
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "El perfil de asesor solo aplica a usuarios con el rol «Asesor». "
+                    "Selecciona el rol Asesor para vincular un perfil."
+                ),
+            )
         advisor = db.get(Advisor, payload.advisor_id)
         if not advisor:
-            raise HTTPException(status_code=404, detail="Asesor no encontrado.")
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "No se encontró el perfil de asesor seleccionado. "
+                    "Recarga la página e inténtalo de nuevo."
+                ),
+            )
         if advisor.user_id is not None:
-            raise HTTPException(status_code=400, detail="Este asesor ya tiene un usuario asignado.")
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Mmm, el asesor «{advisor.name}» ya tiene una cuenta de acceso asignada. "
+                    "Cada perfil de asesor solo puede vincularse a un usuario. "
+                    "Selecciona otro asesor o crea el usuario sin vínculo por ahora."
+                ),
+            )
 
     user = User(
         name=payload.name,
@@ -118,10 +161,23 @@ def create_user(
         created_by=current_user.id if current_user.role.name != "SUPER_ADMIN" else None,
     )
     db.add(user)
-    if advisor:
-        db.flush()
-        advisor.user_id = user.id
-    db.commit()
+    try:
+        if advisor:
+            db.flush()
+            advisor.user_id = user.id
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # La BD es la fuente de verdad final: correo duplicado en una carrera de solicitudes.
+        existing = _email_in_use(db, payload.email, exclude_id=user.id)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                _duplicate_email_detail(payload.email, existing)
+                if existing
+                else "No se pudo crear el usuario. Verifica los datos e inténtalo nuevamente."
+            ),
+        )
     db.refresh(user)
     return UserOut.from_user(user)
 
@@ -148,16 +204,36 @@ def update_user(
     data = payload.model_dump(exclude_unset=True)
     if "password" in data and data["password"]:
         user.password_hash = hash_password(data.pop("password"))
+    elif "password" in data:
+        data.pop("password")
+    if "email" in data and data["email"]:
+        existing = _email_in_use(db, data["email"], exclude_id=user.id)
+        if existing:
+            raise HTTPException(status_code=409, detail=_duplicate_email_detail(data["email"], existing))
+        data["email"] = data["email"].strip().lower()
     if "role" in data:
         role = db.query(RoleModel).filter(RoleModel.name == data["role"]).first()
         if not role:
-            raise HTTPException(status_code=400, detail="Rol inválido.")
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"El rol «{data['role']}» no existe. Selecciona uno de los roles "
+                    "disponibles en el formulario."
+                ),
+            )
         user.role_id = role.id
         data.pop("role")
     for key, value in data.items():
         if value is not None:
             setattr(user, key, value)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se pudo guardar el usuario. Es posible que el correo ya esté en uso por otra cuenta.",
+        )
     db.refresh(user)
     return UserOut.from_user(user)
 

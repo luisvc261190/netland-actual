@@ -255,7 +255,9 @@ class ContractsService:
                 
                 installments_overdue = db.query(func.count(Installment.id)).filter(
                     Installment.financing_plan_id == fin.id,
-                    Installment.status == "vencida"
+                    Installment.status.in_(["pendiente", "parcial", "vencida"]),
+                    Installment.due_date < date.today(),
+                    Installment.balance > 0
                 ).scalar()
 
                 # Próximo vencimiento
@@ -287,7 +289,9 @@ class ContractsService:
                     # Calcular monto vencido
                     overdue_installments = db.query(Installment).filter(
                         Installment.financing_plan_id == fin.id,
-                        Installment.status == "vencida"
+                        Installment.status.in_(["pendiente", "parcial", "vencida"]),
+                        Installment.due_date < date.today(),
+                        Installment.balance > 0
                     ).all()
                     overdue_amount = sum(i.balance for i in overdue_installments)
                 elif next_installment and (next_installment.due_date - date.today()).days <= 7:
@@ -410,15 +414,88 @@ class FinancingService:
 
         db.commit()
 
+    @staticmethod
+    def refinance_schedule(
+        db: Session,
+        financing: FinancingPlan,
+        paid_count: int,
+        start_date: date,
+        num_installments: int,
+        remaining: Decimal,
+    ):
+        """Regenera el cronograma de cuotas pendientes tras un refinanciamiento.
+
+        El refinanciamiento se realiza ÚNICAMENTE a solicitud del cliente. Las
+        cuotas ya pagadas se conservan y el nuevo cronograma continúa la numeración.
+        El saldo pendiente se redistribuye en partes iguales desde start_date.
+        """
+        base = (remaining / Decimal(num_installments)).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        last_amount = base
+        if num_installments > 1:
+            last_amount = (remaining - base * (num_installments - 1)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            if last_amount < Decimal("0.01"):
+                last_amount = base
+
+        current_date = start_date
+        last_due = start_date
+        for i in range(1, num_installments + 1):
+            scheduled = last_amount if i == num_installments else base
+            db.add(Installment(
+                financing_plan_id=financing.id,
+                installment_number=paid_count + i,
+                due_date=current_date,
+                scheduled_amount=scheduled,
+                paid_amount=Decimal("0.00"),
+                balance=scheduled,
+                status="pendiente",
+                days_overdue=0
+            ))
+            last_due = current_date
+            if financing.frequency == "mensual":
+                current_date = current_date + relativedelta(months=1)
+            elif financing.frequency == "quincenal":
+                current_date = current_date + timedelta(days=15)
+            elif financing.frequency == "semanal":
+                current_date = current_date + timedelta(days=7)
+            else:
+                current_date = current_date + relativedelta(months=1)
+
+        financing.number_of_installments = paid_count + num_installments
+        financing.installment_amount = base
+        financing.first_installment_date = start_date
+        financing.last_installment_date = last_due
+        financing.outstanding_balance = remaining
+
 
 class PaymentsService:
     """Servicio para pagos y distribución"""
+
+    @staticmethod
+    def get_late_interest_daily(db: Session) -> Decimal:
+        """Monto diario fijo (S/) de interés por mora configurado en el sistema."""
+        from app.domain.models import SiteConfig
+        cfg = db.query(SiteConfig).filter(
+            SiteConfig.key == "late_interest_daily"
+        ).first()
+        if cfg and cfg.value and cfg.value.strip():
+            try:
+                value = Decimal(str(cfg.value))
+                if value > 0:
+                    return value
+            except Exception:
+                return Decimal("0.00")
+        return Decimal("0.00")
 
     @staticmethod
     def register_payment(
         db: Session,
         payment_data: dict,
         allocations: Optional[List[dict]] = None,
+        exonerate_late_interest: bool = False,
         user_id: Optional[int] = None
     ) -> Payment:
         """Registrar pago y distribuirlo a cuotas"""
@@ -472,9 +549,58 @@ class PaymentsService:
                 # Distribución automática (cuota más antigua pendiente)
                 PaymentsService._auto_allocate_payment(db, payment)
 
+            # Calcular el interés por mora de las cuotas atendidas
+            PaymentsService._compute_late_interest(
+                db, payment, exonerate_late_interest=exonerate_late_interest
+            )
+
         db.commit()
         db.refresh(payment)
         return payment
+
+    @staticmethod
+    def _compute_late_interest(
+        db: Session,
+        payment: Payment,
+        exonerate_late_interest: bool = False
+    ):
+        """Registra los días de atraso y el interés por mora de cada cuota atendida.
+
+        El interés diario fijo (S/) se aplica desde la fecha de vencimiento de la
+        cuota hasta la fecha del pago. El monto del pago no se descuenta: el interés
+        queda registrado en el pago para control y referencia del cobrador.
+        """
+        daily = PaymentsService.get_late_interest_daily(db)
+        allocs = db.query(PaymentAllocation).filter(
+            PaymentAllocation.payment_id == payment.id
+        ).all()
+
+        total_interest = Decimal("0.00")
+        max_days = 0
+
+        for alloc in allocs:
+            installment = db.query(Installment).filter(
+                Installment.id == alloc.installment_id
+            ).first()
+            if not installment or not installment.due_date:
+                continue
+            if installment.due_date < payment.payment_date:
+                days = (payment.payment_date - installment.due_date).days
+                alloc.late_days = days
+                alloc.late_interest = (Decimal(days) * daily).quantize(Decimal("0.01"))
+                total_interest += alloc.late_interest
+                max_days = max(max_days, days)
+            else:
+                alloc.late_days = 0
+                alloc.late_interest = Decimal("0.00")
+
+        payment.late_interest_days = max_days
+        if exonerate_late_interest:
+            payment.late_interest_waived = True
+            payment.late_interest_amount = Decimal("0.00")
+        else:
+            payment.late_interest_waived = False
+            payment.late_interest_amount = total_interest.quantize(Decimal("0.01"))
 
     @staticmethod
     def _allocate_to_installment(
@@ -669,10 +795,12 @@ class CollectionsService:
             total_portfolio += fin.financed_amount
             total_collected += (fin.financed_amount - fin.outstanding_balance)
             
-            # Calcular deuda vencida
+            # Calcular deuda vencida (en vivo por fecha, sin depender del estado almacenado)
             overdue = db.query(func.sum(Installment.balance)).filter(
                 Installment.financing_plan_id == fin.id,
-                Installment.status == "vencida"
+                Installment.status.in_(["pendiente", "parcial", "vencida"]),
+                Installment.due_date < today,
+                Installment.balance > 0
             ).scalar()
             if overdue:
                 total_overdue += overdue
@@ -697,12 +825,14 @@ class CollectionsService:
             Installment.due_date.between(today, today + timedelta(days=7))
         ).scalar() or Decimal("0.00")
 
-        # Contratos con deuda vencida
+        # Contratos con deuda vencida (en vivo por fecha)
         overdue_contracts = db.query(func.count(func.distinct(Contract.id))).join(
             FinancingPlan
         ).join(Installment).filter(
             Contract.status == "activo",
-            Installment.status == "vencida"
+            Installment.status.in_(["pendiente", "parcial", "vencida"]),
+            Installment.due_date < today,
+            Installment.balance > 0
         ).scalar()
 
         return {
@@ -835,10 +965,14 @@ class CollectionsService:
                     if next_inst.due_date < today:
                         item["days_overdue"] = (today - next_inst.due_date).days
 
+                # Deuda vencida calculada EN VIVO por fecha (no depende del estado
+                # "vencida" almacenado ni de ejecutar "Actualizar Vencidos").
                 overdue_insts = db.query(Installment).filter(
                     Installment.financing_plan_id == financing.id,
-                    Installment.status == "vencida"
-                ).all()
+                    Installment.status.in_(["pendiente", "parcial", "vencida"]),
+                    Installment.due_date < today,
+                    Installment.balance > 0
+                ).order_by(Installment.due_date).all()
                 item["overdue_installments"] = len(overdue_insts)
                 item["overdue_amount"] = sum(i.balance for i in overdue_insts)
 
