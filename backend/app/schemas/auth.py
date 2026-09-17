@@ -34,6 +34,9 @@ class UserUpdate(BaseModel):
     password: str | None = Field(default=None, min_length=8)
     role: str | None = None
     is_active: bool | None = None
+    # Perfil de asesor a vincular/desvincular (solo usuarios con rol Asesor).
+    # `null` desvincula al asesor actual; un valor lo vincula.
+    advisor_id: int | None = None
     # Cuota de usuarios que un ADMIN puede crear (solo puede asignarla SUPER_ADMIN).
     user_quota: int | None = Field(default=None, ge=0, le=10000)
 

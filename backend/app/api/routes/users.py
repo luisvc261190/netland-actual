@@ -202,6 +202,7 @@ def update_user(
             raise _forbidden()
 
     data = payload.model_dump(exclude_unset=True)
+    incoming_role = data.get("role")
     if "password" in data and data["password"]:
         user.password_hash = hash_password(data.pop("password"))
     elif "password" in data:
@@ -223,6 +224,45 @@ def update_user(
             )
         user.role_id = role.id
         data.pop("role")
+    if "advisor_id" in data:
+        advisor_id = data.pop("advisor_id")
+        effective_role = incoming_role or user.role.name
+        if advisor_id is not None:
+            if effective_role != "ASESOR":
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "El perfil de asesor solo aplica a usuarios con el rol «Asesor». "
+                        "Selecciona el rol Asesor para vincular un perfil."
+                    ),
+                )
+            advisor = db.get(Advisor, advisor_id)
+            if not advisor:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        "No se encontró el perfil de asesor seleccionado. "
+                        "Recarga la página e inténtalo de nuevo."
+                    ),
+                )
+            # Cada perfil de asesor solo puede vincularse a un usuario.
+            if advisor.user_id is not None and advisor.user_id != user.id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Mmm, el asesor «{advisor.name}» ya tiene una cuenta de acceso asignada. "
+                        "Cada perfil de asesor solo puede vincularse a un usuario. "
+                        "Selecciona otro asesor o deja el usuario sin vínculo por ahora."
+                    ),
+                )
+            # Si el usuario ya tenía otro asesor vinculado, lo desvincula.
+            if user.advisor and user.advisor.id != advisor.id:
+                user.advisor.user_id = None
+            advisor.user_id = user.id
+        else:
+            # Desvincular el asesor actual del usuario.
+            if user.advisor:
+                user.advisor.user_id = None
     for key, value in data.items():
         if value is not None:
             setattr(user, key, value)

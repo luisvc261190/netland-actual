@@ -106,7 +106,10 @@ export default function AdminUsers() {
   const { data: availableAdvisors } = useQuery({
     queryKey: ["available-advisors"],
     queryFn: ({ signal }) => api.get<Advisor[]>("/users/available-advisors", true, signal),
-    enabled: modalOpen && !editing && form.role === "ASESOR",
+    enabled:
+      modalOpen &&
+      form.role === "ASESOR" &&
+      (!editing || !editing.advisor_id),
   });
 
   // Cuota del admin que está logueado.
@@ -126,6 +129,8 @@ export default function AdminUsers() {
 
   const canCreate = isSuperAdmin || (quotaStats.quota > 0 && quotaStats.remaining > 0);
 
+  const canLinkAdvisorOnEdit = Boolean(editing && editing.role === "ASESOR" && !editing.advisor_id);
+
   const saveMutation = useMutation({
     mutationFn: () => {
       const clientErrors = validateForm(form, Boolean(editing));
@@ -142,6 +147,9 @@ export default function AdminUsers() {
         if (form.password) payload.password = form.password;
         if (isSuperAdmin && form.role === "ADMIN" && form.user_quota !== "") {
           payload.user_quota = Number(form.user_quota);
+        }
+        if (canLinkAdvisorOnEdit) {
+          payload.advisor_id = form.advisor_id ? Number(form.advisor_id) : null;
         }
         return api.put(`/users/${editing.id}`, payload, true);
       }
@@ -197,7 +205,7 @@ export default function AdminUsers() {
       password: "",
       role: user.role,
       is_active: user.is_active,
-      advisor_id: "",
+      advisor_id: user.advisor_id ? String(user.advisor_id) : "",
       user_quota: user.user_quota != null ? String(user.user_quota) : "",
     });
     setFieldErrors(emptyErrors);
@@ -371,6 +379,18 @@ export default function AdminUsers() {
               />
             </Field>
           )}
+          {editing && editing.advisor_name && (
+            <div className="rounded-lg border border-netland-light bg-netland-light/40 px-4 py-3">
+              <p className="text-xs font-semibold text-netland-muted">Asesor vinculado</p>
+              <p className="mt-0.5 inline-flex items-center gap-1.5 text-sm font-semibold text-netland-primary">
+                <UserRoundCheck className="h-4 w-4" />
+                {editing.advisor_name}
+              </p>
+              <p className="mt-1 text-xs text-netland-muted">
+                Este usuario ya tiene un perfil de asesor vinculado.
+              </p>
+            </div>
+          )}
           {!editing && form.role === "ASESOR" && (
             <Field label="Perfil de asesor">
               <Select
@@ -393,6 +413,31 @@ export default function AdminUsers() {
               <FieldError msg={fieldErrors.advisor_id} />
             </Field>
           )}
+          {editing &&
+            !editing.advisor_id &&
+            editing.role === "ASESOR" &&
+            form.role === "ASESOR" && (
+              <Field label="Vincular perfil de asesor">
+                <Select
+                  value={form.advisor_id}
+                  onChange={(e) => {
+                    setForm({ ...form, advisor_id: e.target.value });
+                    clearFieldError("advisor_id");
+                  }}
+                >
+                  <option value="">Sin vínculo por ahora</option>
+                  {availableAdvisors?.map((advisor) => (
+                    <option key={advisor.id} value={advisor.id}>
+                      {advisor.name}{advisor.email ? ` · ${advisor.email}` : ""}
+                    </option>
+                  ))}
+                </Select>
+                <p className="mt-1 text-xs text-netland-muted">
+                  Solo aparecen perfiles de asesor que aún no tienen usuario vinculado.
+                </p>
+                <FieldError msg={fieldErrors.advisor_id} />
+              </Field>
+            )}
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
