@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "react-router-dom";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowLeft,
   Plus,
@@ -9,6 +9,7 @@ import {
   XCircle,
   UserCheck,
   AlertTriangle,
+  CheckCircle,
   FileDown,
   FilePlus2,
   Receipt,
@@ -30,6 +31,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { useToast } from "../../../components/ui/Toast";
 import { CoreSpinLoader } from "../../../components/ui/CoreSpinLoader";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { LateInterestConfirmDialog } from "../components/LateInterestConfirmDialog";
 import type {
   ContractDetail,
   FinancingPlanDetail,
@@ -47,6 +49,11 @@ import {
   COLLECTION_STATUS_COLORS,
   formatSoles,
   formatDate,
+  computeLate,
+  simulateDuePayment,
+  applyPrefixSelection,
+  dueSummary,
+  toDialogRows,
 } from "../constants";
 
 interface AllocRow {
@@ -113,6 +120,8 @@ export default function ContractDetailPage() {
   });
   const [allocations, setAllocations] = useState<AllocRow[]>([]);
   const [exonerateInterest, setExonerateInterest] = useState(false);
+  const [moraConfirmOpen, setMoraConfirmOpen] = useState(false);
+  const moraAccepted = useRef(false);
   const [emitOpen, setEmitOpen] = useState(false);
   const [emitForm, setEmitForm] = useState({ document_type: "proforma", description: "" });
   const [refinanceOpen, setRefinanceOpen] = useState(false);
@@ -331,6 +340,7 @@ export default function ContractDetailPage() {
     });
     setAllocations([]);
     setExonerateInterest(false);
+    moraAccepted.current = false;
   };
 
   const openPaymentModal = () => {
@@ -348,99 +358,166 @@ export default function ContractDetailPage() {
         checked: false,
       }))
     );
+    moraAccepted.current = false;
     setPaymentOpen(true);
+  };
+
+  // En modo mora la selección respeta "desde la más atrasada hacia adelante":
+  // la selección siempre es un bloque continuo desde la cuota más antigua.
+  // Fuera de modo mora el toggle es libre (distribución manual).
+  const toggleAllocation = (targetId: number) => {
+    setAllocations((prev) => {
+      const target = prev.find((a) => a.installment_id === targetId);
+      if (!target) return prev;
+      const nextChecked = !target.checked;
+      if (!moraMode) {
+        return prev.map((a) =>
+          a.installment_id === targetId ? { ...a, checked: nextChecked } : a
+        );
+      }
+      const selectedIds = applyPrefixSelection(
+        new Set(prev.filter((a) => a.checked).map((a) => a.installment_id)),
+        targetId,
+        prev.map((a) => ({ id: a.installment_id, due_date: a.due_date })),
+        nextChecked
+      );
+      return prev.map((a) => ({ ...a, checked: selectedIds.has(a.installment_id) }));
+    });
   };
 
   const submitPayment = async () => {
     if (!contract) return;
-    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
-      toast("El monto debe ser mayor a 0", "error");
+    const received = parseFloat(paymentForm.amount);
+    if (!received || received <= 0) {
+      toast("El monto recibido debe ser mayor a 0", "error");
       return;
     }
 
-    const checkedAllocs = allocations.filter((a) => a.checked);
+    let finalAmount = received;
     let allocPayload: Array<{ installment_id: number; amount: number }> | null = null;
     const warnings: string[] = [];
-    const paymentAmount = parseFloat(paymentForm.amount);
 
-    if (checkedAllocs.length > 0) {
-      const effectiveAmount = (a: AllocRow) =>
-        Math.min(parseFloat(a.amount) || 0, paymentAmount);
+    if (moraMode) {
+      // Liquidación obligatoria de cuota + mora (de la cuota más antigua).
+      // No se permite un pago parcial de una cuota vencida sin su recargo.
+      if (dueSimulation?.blocked) {
+        const b = dueSimulation.blocked;
+        const required = b.balance + b.interest;
+        toast(
+          `Cobro de mora obligatorio: la cuota ${String(b.installment_number).padStart(
+            2,
+            "0"
+          )} vencida exige pagar cuota ${formatSoles(b.balance)} + mora ${formatSoles(
+            b.interest
+          )} = ${formatSoles(required)}. Monto recibido: ${formatSoles(received)}.`,
+          "error"
+        );
+        return;
+      }
 
-      allocPayload = checkedAllocs.map((a) => ({
-        installment_id: a.installment_id,
-        amount: effectiveAmount(a),
+      // Confirmación explícita del recargo de mora antes de registrar.
+      if (!moraAccepted.current && dueSimulation && dueSimulation.mora > 0) {
+        setMoraConfirmOpen(true);
+        return;
+      }
+
+      if (!dueSimulation) return;
+      finalAmount = dueSimulation.applied;
+      allocPayload = dueSimulation.settled.map((s) => ({
+        installment_id: s.installment_id,
+        amount: s.balance,
       }));
-      const totalAllocated = allocPayload.reduce((sum, a) => sum + a.amount, 0);
 
-      if (totalAllocated > paymentAmount) {
-        toast("La suma de las cuotas supera el monto del pago", "error");
-        return;
-      }
-      if (totalAllocated <= 0) {
-        toast("Ingresa un monto válido para al menos una cuota", "error");
-        return;
-      }
-
-      // Pago parcial: una cuota marcada no se cubre por completo
-      const partials = checkedAllocs.filter((a) => {
-        const amount = effectiveAmount(a);
-        return amount > 0 && amount < a.balance;
-      });
-      if (partials.length > 0) {
+      // Pago en exceso: ya no quedan cuotas pendientes a las que aplicarlo.
+      if (dueSimulation.excess > 0.005) {
         warnings.push(
-          "Pago parcial:\n" +
-            partials
-              .map(
-                (a) =>
-                  `· Cuota ${a.installment_number}: falta ${formatSoles(a.balance - effectiveAmount(a))} para completarla`
-              )
-              .join("\n")
-        );
-      }
-
-      // Pago en exceso: cuotas marcadas que reciben más que su saldo
-      const excesses = checkedAllocs.filter((a) => {
-        const amount = effectiveAmount(a);
-        return amount > a.balance;
-      });
-      if (excesses.length > 0) {
-        warnings.push(
-          "Pago en exceso:\n" +
-            excesses
-              .map(
-                (a) =>
-                  `· Cuota ${a.installment_number}: sobra ${formatSoles(effectiveAmount(a) - a.balance)}`
-              )
-              .join("\n") +
-            "\nEl excedente se aplicará automáticamente a la siguiente cuota pendiente."
-        );
-      }
-
-      // Pago en exceso: el monto total supera lo asignado a las cuotas marcadas
-      const surplus = paymentAmount - totalAllocated;
-      if (surplus > 0) {
-        warnings.push(
-          `Pago en exceso:\n· Sobran ${formatSoles(surplus)} sobre las cuotas marcadas` +
-            "\nEl excedente se aplicará automáticamente a la siguiente cuota pendiente."
+          `Pago en exceso:\n· Sobran ${formatSoles(
+            dueSimulation.excess
+          )} sobre el total de cuotas + mora. No hay más cuotas pendientes; el excedente queda como saldo a favor del cliente.`
         );
       }
     } else {
-      // Distribución automática: analizar contra la cuota pendiente más antigua
-      const oldestPending = (schedule || []).find((i) =>
-        ["pendiente", "parcial", "vencida"].includes(i.status)
-      );
-      if (oldestPending) {
-        if (paymentAmount > 0 && paymentAmount < oldestPending.balance) {
+      const checkedAllocs = allocations.filter((a) => a.checked);
+
+      if (checkedAllocs.length > 0) {
+        const effectiveAmount = (a: AllocRow) =>
+          Math.min(parseFloat(a.amount) || 0, received);
+
+        allocPayload = checkedAllocs.map((a) => ({
+          installment_id: a.installment_id,
+          amount: effectiveAmount(a),
+        }));
+        const totalAllocated = allocPayload.reduce((sum, a) => sum + a.amount, 0);
+
+        if (totalAllocated > received) {
+          toast("La suma de las cuotas supera el monto del pago", "error");
+          return;
+        }
+        if (totalAllocated <= 0) {
+          toast("Ingresa un monto válido para al menos una cuota", "error");
+          return;
+        }
+
+        // Pago parcial: una cuota marcada no se cubre por completo
+        const partials = checkedAllocs.filter((a) => {
+          const amount = effectiveAmount(a);
+          return amount > 0 && amount < a.balance;
+        });
+        if (partials.length > 0) {
           warnings.push(
-            `Pago parcial:\n· Cuota ${oldestPending.installment_number}: falta ${formatSoles(oldestPending.balance - paymentAmount)} para completarla`
+            "Pago parcial:\n" +
+              partials
+                .map(
+                  (a) =>
+                    `· Cuota ${a.installment_number}: falta ${formatSoles(a.balance - effectiveAmount(a))} para completarla`
+                )
+                .join("\n")
           );
         }
-        if (paymentAmount > oldestPending.balance) {
+
+        // Pago en exceso: cuotas marcadas que reciben más que su saldo
+        const excesses = checkedAllocs.filter((a) => {
+          const amount = effectiveAmount(a);
+          return amount > a.balance;
+        });
+        if (excesses.length > 0) {
           warnings.push(
-            `Pago en exceso:\n· Cuota ${oldestPending.installment_number}: sobra ${formatSoles(paymentAmount - oldestPending.balance)}` +
+            "Pago en exceso:\n" +
+              excesses
+                .map(
+                  (a) =>
+                    `· Cuota ${a.installment_number}: sobra ${formatSoles(effectiveAmount(a) - a.balance)}`
+                )
+                .join("\n") +
               "\nEl excedente se aplicará automáticamente a la siguiente cuota pendiente."
           );
+        }
+
+        // Pago en exceso: el monto total supera lo asignado a las cuotas marcadas
+        const surplus = received - totalAllocated;
+        if (surplus > 0) {
+          warnings.push(
+            `Pago en exceso:\n· Sobran ${formatSoles(surplus)} sobre las cuotas marcadas` +
+              "\nEl excedente se aplicará automáticamente a la siguiente cuota pendiente."
+          );
+        }
+      } else {
+        // Distribución automática: analizar contra la cuota pendiente más antigua
+        const oldestPending = (schedule || []).find((i) =>
+          ["pendiente", "parcial", "vencida"].includes(i.status)
+        );
+        if (oldestPending) {
+          if (received > 0 && received < oldestPending.balance) {
+            warnings.push(
+              `Pago parcial:\n· Cuota ${oldestPending.installment_number}: falta ${formatSoles(oldestPending.balance - received)} para completarla`
+            );
+          }
+          if (received > oldestPending.balance) {
+            warnings.push(
+              `Pago en exceso:\n· Cuota ${oldestPending.installment_number}: sobra ${formatSoles(received - oldestPending.balance)}` +
+                "\nEl excedente se aplicará automáticamente a la siguiente cuota pendiente."
+            );
+          }
         }
       }
     }
@@ -461,7 +538,7 @@ export default function ContractDetailPage() {
       contract_id: contract.id,
       payer_id: contract.owner_id,
       payment_date: paymentForm.payment_date,
-      amount: parseFloat(paymentForm.amount),
+      amount: finalAmount,
       payment_method: paymentForm.payment_method,
       transaction_number: paymentForm.transaction_number || null,
       bank_name: paymentForm.bank_name || null,
@@ -471,6 +548,12 @@ export default function ContractDetailPage() {
     };
 
     savePayment.mutate(payload);
+  };
+
+  const handleMoraConfirm = () => {
+    setMoraConfirmOpen(false);
+    moraAccepted.current = true;
+    submitPayment();
   };
 
   if (isLoading) {
@@ -535,29 +618,96 @@ export default function ContractDetailPage() {
   const dailyRate =
     lateConfig?.enabled && lateConfig.daily_rate > 0 ? lateConfig.daily_rate : 0;
   const refDate = paymentForm.payment_date || new Date().toISOString().split("T")[0];
-  const lateInfo = (due: string | null | undefined) => {
-    if (!due || !dailyRate) return { days: 0, interest: 0 };
-    const dueMs = new Date(due).getTime();
-    const refMs = new Date(refDate).getTime();
-    if (Number.isNaN(dueMs) || Number.isNaN(refMs)) return { days: 0, interest: 0 };
-    const days = Math.max(0, Math.floor((refMs - dueMs) / 86400000));
-    return { days, interest: Number((days * dailyRate).toFixed(2)) };
-  };
-  const checkedWithInterest = allocations.filter((a) => a.checked);
-  const interestPreview = checkedWithInterest.reduce(
-    (sum, a) => sum + lateInfo(a.due_date).interest,
-    0
+  const todayRef = new Date().toISOString().split("T")[0];
+
+  const lateOf = (due: string | null | undefined) => computeLate(due, refDate, dailyRate);
+
+  // Cuotas pendientes con atraso (días y mora respecto a una fecha de referencia).
+  const buildOverdue = (rows: Installment[] | undefined, ref: string) =>
+    (rows || [])
+      .filter((i) => ["pendiente", "parcial", "vencida"].includes(i.status))
+      .map((i) => {
+        const late = computeLate(i.due_date, ref, dailyRate);
+        return { installment: i, days: late.days, interest: late.interest };
+      })
+      .filter((r) => r.days > 0)
+      .sort((a, b) => (a.installment.due_date > b.installment.due_date ? 1 : -1));
+
+  // Respecto a la fecha del pago (modal de registro de pago).
+  const overdueRows = buildOverdue(schedule, refDate);
+  const overdueInterestTotal = overdueRows.reduce((s, r) => s + r.interest, 0);
+  const overdueMaxDays = overdueRows.reduce((s, r) => Math.max(s, r.days), 0);
+  const hasLateInterest = overdueRows.length > 0 && dailyRate > 0;
+
+  // Respecto a hoy (vista de la página del contrato).
+  const todayOverdueRows = buildOverdue(schedule, todayRef);
+  const todayOverdueInterestTotal = todayOverdueRows.reduce((s, r) => s + r.interest, 0);
+  const todayOverdueMaxDays = todayOverdueRows.reduce((s, r) => Math.max(s, r.days), 0);
+  const todayOverdueByInstallment = new Map(
+    todayOverdueRows.map((r) => [r.installment.id, { days: r.days, interest: r.interest }])
   );
-  // Si no se marcó ninguna cuota, el pago se aplica a la más antigua con saldo.
-  const overflowPreview =
-    checkedWithInterest.length === 0
-      ? (schedule || []).find((i) =>
-          ["pendiente", "parcial", "vencida"].includes(i.status)
-        )
+  const lateBadge = (instId: number) => {
+    const info = todayOverdueByInstallment.get(instId);
+    return info
+      ? `${info.days} ${info.days === 1 ? "día" : "días"} · ${formatSoles(info.interest)}`
+      : "—";
+  };
+
+  // Modo cobro de mora: hay cuotas vencidas y NO se exonera el recargo. En este
+  // modo la liquidación es automática (de la cuota más antigua) y obliga a pagar
+  // cuota + mora completos: no se permiten pagos parciales de cuotas vencidas.
+  const paymentAmountNum = parseFloat(paymentForm.amount) || 0;
+  const moraMode =
+    contract?.payment_modality === "financiado" && hasLateInterest && !exonerateInterest;
+
+  const pendingCuotas = (schedule || [])
+    .filter((i) => ["pendiente", "parcial", "vencida"].includes(i.status))
+    .map((i) => ({
+      id: i.id,
+      installment_number: i.installment_number,
+      due_date: i.due_date,
+      balance: i.balance,
+    }));
+
+  // En modo mora se cobran SOLO las cuotas marcadas (desde la más antigua). Si
+  // no se marca ninguna, se mantiene la liquidación automática de todas.
+  const settleOnlyIds =
+    moraMode && allocations.some((a) => a.checked)
+      ? new Set(allocations.filter((a) => a.checked).map((a) => a.installment_id))
       : undefined;
-  const interestPreviewTotal =
-    interestPreview +
-    (overflowPreview ? lateInfo(overflowPreview.due_date).interest : 0);
+
+  const dueSimulation = moraMode
+    ? simulateDuePayment({
+        received: paymentAmountNum,
+        dailyRate,
+        refDate,
+        pending: pendingCuotas,
+        exonerate: false,
+        settleOnlyIds,
+      })
+    : null;
+
+  const summary = dueSimulation ? dueSummary(dueSimulation) : null;
+  const summaryApplied = summary ? summary.applied : paymentAmountNum;
+  const summaryMora = summary ? summary.mora : 0;
+  const summaryTotal = summary ? summary.total : paymentAmountNum;
+  const dialogRows = dueSimulation ? toDialogRows(dueSimulation.settled) : [];
+
+  // Total que exigen las cuotas marcadas (saldo + mora) para que el cajero sepa
+  // cuánto cobrar según su selección.
+  const checkedSummary =
+    moraMode && allocations.some((a) => a.checked)
+      ? allocations.filter((a) => a.checked).reduce(
+          (acc, a) => {
+            acc.balance += a.balance;
+            const late = lateOf(a.due_date);
+            acc.mora += late.days > 0 ? late.interest : 0;
+            return acc;
+          },
+          { balance: 0, mora: 0 }
+        )
+      : null;
+  const checkedTotal = checkedSummary ? checkedSummary.balance + checkedSummary.mora : 0;
 
   // La última cuota absorbe la diferencia por redondeo para que el saldo cierre en 0.
   const roundingDiff = financedAmount - totalScheduled;
@@ -916,6 +1066,30 @@ export default function ContractDetailPage() {
             </div>
           </div>
 
+          {todayOverdueRows.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                {todayOverdueRows.length}{" "}
+                {todayOverdueRows.length === 1 ? "cuota vencida" : "cuotas vencidas"}
+              </div>
+              <div className="flex flex-wrap gap-4 text-sm text-red-700">
+                <span>
+                  Atraso máximo:{" "}
+                  <strong>
+                    {todayOverdueMaxDays} {todayOverdueMaxDays === 1 ? "día" : "días"}
+                  </strong>
+                </span>
+                <span>
+                  Mora acumulada: <strong>{formatSoles(todayOverdueInterestTotal)}</strong>
+                </span>
+                <span>
+                  Tasa: <strong>{formatSoles(dailyRate)}/día</strong>
+                </span>
+              </div>
+            </div>
+          )}
+
           {installments.length === 0 ? (
             <EmptyState
               title="Sin cronograma"
@@ -931,6 +1105,7 @@ export default function ContractDetailPage() {
                   "Pagado",
                   "Saldo",
                   "Estado",
+                  "Atraso / Mora",
                 ]}
               >
               {scheduleRows.map((inst) => (
@@ -954,6 +1129,17 @@ export default function ContractDetailPage() {
                       {INSTALLMENT_STATUS[inst.status]}
                     </Badge>
                   </td>
+                  <td className="px-5 py-2.5 text-xs font-medium">
+                    <span
+                      className={
+                        todayOverdueByInstallment.has(inst.id)
+                          ? "text-red-600"
+                          : "text-netland-muted"
+                      }
+                    >
+                      {lateBadge(inst.id)}
+                    </span>
+                  </td>
                 </tr>
               ))}
               <tr className="border-t-2 border-netland-light bg-netland-light/20 font-semibold text-netland-dark">
@@ -963,6 +1149,7 @@ export default function ContractDetailPage() {
                 <td className="px-5 py-3">{formatSoles(totalScheduled)}</td>
                 <td className="px-5 py-3 text-netland-primary">{formatSoles(totalPaidSchedule)}</td>
                 <td className="px-5 py-3">{formatSoles(totalBalance)}</td>
+                <td className="px-5 py-3" />
                 <td className="px-5 py-3" />
               </tr>
             </Table>
@@ -1084,7 +1271,7 @@ export default function ContractDetailPage() {
               }
             />
           </Field>
-          <Field label="Monto (S/)">
+          <Field label="Monto recibido del cliente (S/)">
             <Input
               type="number"
               step="0.01"
@@ -1145,8 +1332,9 @@ export default function ContractDetailPage() {
                 Distribución del pago
               </p>
               <p className="mb-3 text-xs text-netland-muted">
-                Marca las cuotas a las que se aplicará el pago. Si no marcas ninguna,
-                se aplicará automáticamente a la cuota pendiente más antigua.
+                {moraMode
+                  ? "Marca las cuotas por cobrar (se pagan en orden, desde la más atrasada). Las vencidas se cobran completas: cuota + mora. Si solo se pagará la más antigua, deja las demás sin marcar."
+                  : "Marca las cuotas a las que se aplicará el pago. Si no marcas ninguna, se aplicará automáticamente a la cuota pendiente más antigua."}
               </p>
               <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-netland-light p-3">
                 {allocations.map((alloc) => (
@@ -1157,24 +1345,16 @@ export default function ContractDetailPage() {
                     <input
                       type="checkbox"
                       checked={alloc.checked}
-                      onChange={(e) =>
-                        setAllocations((prev) =>
-                          prev.map((a) =>
-                            a.installment_id === alloc.installment_id
-                              ? { ...a, checked: e.target.checked }
-                              : a
-                          )
-                        )
-                      }
+                      onChange={() => toggleAllocation(alloc.installment_id)}
                       className="h-4 w-4 rounded border-netland-light accent-netland-primary"
                     />
                     <span className="w-20 text-sm font-medium">
                       Cuota {String(alloc.installment_number).padStart(2, "0")} / {totalInstallments}
                     </span>
                     <span className="w-28 text-xs text-netland-muted">Saldo: {formatSoles(alloc.balance)}</span>
-                    {lateInfo(alloc.due_date).days > 0 && (
-                      <span className="text-xs text-amber-600">
-                        Atraso {lateInfo(alloc.due_date).days}d · +{formatSoles(lateInfo(alloc.due_date).interest)}
+                    {lateOf(alloc.due_date).days > 0 && (
+                      <span className="text-xs font-semibold text-amber-600">
+                        Atraso {lateOf(alloc.due_date).days}d · +{formatSoles(lateOf(alloc.due_date).interest)}
                       </span>
                     )}
                     <input
@@ -1191,34 +1371,170 @@ export default function ContractDetailPage() {
                           )
                         )
                       }
-                      disabled={!alloc.checked}
-                      className="w-32 rounded-lg border border-netland-light px-3 py-1.5 text-sm focus:border-netland-primary focus:outline-none"
+                      disabled={!alloc.checked || (moraMode && lateOf(alloc.due_date).days > 0)}
+                      className="w-32 rounded-lg border border-netland-light px-3 py-1.5 text-sm focus:border-netland-primary focus:outline-none disabled:cursor-not-allowed disabled:bg-netland-light/40 disabled:opacity-50"
                     />
                   </label>
                 ))}
               </div>
+              {moraMode && checkedSummary && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-amber-900">
+                      Total por las cuotas marcadas
+                    </span>
+                    <span className="font-bold text-netland-primary">
+                      {formatSoles(checkedTotal)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-amber-700">
+                    Saldo {formatSoles(checkedSummary.balance)} · Mora{" "}
+                    {formatSoles(checkedSummary.mora)}.
+                    {paymentAmountNum >= checkedTotal - 0.005
+                      ? " Este monto alcanza para cubrirlas."
+                      : ` Falta ${formatSoles(checkedTotal - paymentAmountNum)} para cubrirlas.`}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
-          {contract.payment_modality === "financiado" && allocations.length > 0 && dailyRate > 0 && interestPreviewTotal > 0 && (
-            <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:col-span-2">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-amber-800">
-                  Interés por mora estimado · {formatSoles(interestPreviewTotal)}
-                </span>
-                <span className="text-xs text-amber-700">
-                  {formatSoles(dailyRate)}/día por cuota vencida
+          {contract.payment_modality === "financiado" && hasLateInterest && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 sm:col-span-2">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-bold text-amber-800">
+                    Interés por mora
+                  </span>
+                  <span className="rounded-full bg-amber-200/70 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                    {formatSoles(dailyRate)}/día
+                  </span>
+                </div>
+                <span className="text-xs font-semibold text-amber-700">
+                  Total mora: {formatSoles(overdueInterestTotal)}
                 </span>
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-amber-900">
-                <input
-                  type="checkbox"
-                  checked={exonerateInterest}
-                  onChange={(e) => setExonerateInterest(e.target.checked)}
-                  className="h-4 w-4 rounded border-amber-300 accent-netland-primary"
-                />
-                Exonerar interés de mora para este pago
-              </label>
+
+              <div className="mb-3 overflow-hidden rounded-lg border border-amber-200 bg-white">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-amber-100/70 text-left text-[11px] uppercase tracking-wide text-amber-800">
+                      <th className="px-3 py-2">Cuota</th>
+                      <th className="px-3 py-2">Vencimiento</th>
+                      <th className="px-3 py-2 text-right">Días de atraso</th>
+                      <th className="px-3 py-2 text-right">Mora</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {overdueRows.map((r) => (
+                      <tr
+                        key={r.installment.id}
+                        className="border-t border-amber-100"
+                      >
+                        <td className="px-3 py-2 font-semibold text-netland-dark">
+                          {String(r.installment.installment_number).padStart(2, "0")}
+                        </td>
+                        <td className="px-3 py-2 text-neutral-600">
+                          {formatDate(r.installment.due_date)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-red-600">
+                          {r.days} {r.days === 1 ? "día" : "días"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-amber-700">
+                          {formatSoles(r.interest)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-amber-200 bg-amber-50/70 font-semibold text-amber-900">
+                      <td className="px-3 py-2" colSpan={3}>
+                        Total interés por mora
+                      </td>
+                      <td className="px-3 py-2 text-right font-bold">
+                        {formatSoles(overdueInterestTotal)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <p className="mb-3 text-xs text-amber-700">
+                Atraso máximo registrado:{" "}
+                <span className="font-semibold">
+                  {overdueMaxDays} {overdueMaxDays === 1 ? "día" : "días"}
+                </span>
+                . Las cuotas vencidas se cobran completas (cuota + mora) y en orden
+                desde la más antigua: marca en la distribución cuáles vas a cobrar. Si
+                solo se pagará la más atrasada, deja las demás sin marcar.
+              </p>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setExonerateInterest(false)}
+                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    !exonerateInterest
+                      ? "border-amber-400 bg-amber-200 text-amber-900"
+                      : "border-amber-200 bg-white text-amber-600 hover:bg-amber-100"
+                  }`}
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Cobrar mora
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExonerateInterest(true)}
+                  className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    exonerateInterest
+                      ? "border-amber-400 bg-amber-200 text-amber-900"
+                      : "border-amber-200 bg-white text-amber-600 hover:bg-amber-100"
+                  }`}
+                >
+                  <XCircle className="h-4 w-4" />
+                  Exonerar mora
+                </button>
+              </div>
+              <div className="mt-3 space-y-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-amber-800">Aplicado a las cuotas</span>
+                  <span className="font-semibold text-netland-dark">
+                    {formatSoles(summaryApplied)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-amber-800">
+                    Interés de mora{exonerateInterest ? " (exonerado)" : ""}
+                  </span>
+                  <span className="font-semibold text-amber-700">
+                    {exonerateInterest ? "—" : formatSoles(summaryMora)}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-between border-t border-amber-100 pt-1">
+                  <span className="font-bold text-amber-900">Total a cobrar</span>
+                  <span className="text-base font-bold text-netland-primary">
+                    {formatSoles(summaryTotal)}
+                  </span>
+                </div>
+              </div>
+              {dueSimulation?.blocked && (
+                <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  Monto recibido {formatSoles(paymentAmountNum)}: la cuota{" "}
+                  {String(dueSimulation.blocked.installment_number).padStart(2, "0")}{" "}
+                  vencida exige pagar cuota {formatSoles(dueSimulation.blocked.balance)}{" "}
+                  + mora {formatSoles(dueSimulation.blocked.interest)} ={" "}
+                  {formatSoles(
+                    dueSimulation.blocked.balance + dueSimulation.blocked.interest
+                  )}{" "}
+                  para continuar el pago.
+                </div>
+              )}
+              <p className="mt-2 text-xs text-amber-700">
+                {exonerateInterest
+                  ? "La mora se exonera: solo se cobra el monto de las cuotas."
+                  : "El interés de mora se suma al monto recibido. Las cuotas vencidas marcadas se cobran completas: cuota + mora."}
+              </p>
             </div>
           )}
 
@@ -1232,6 +1548,17 @@ export default function ContractDetailPage() {
           </div>
         </div>
       </Modal>
+
+      <LateInterestConfirmDialog
+        open={moraConfirmOpen}
+        onClose={() => setMoraConfirmOpen(false)}
+        onConfirm={handleMoraConfirm}
+        rows={dialogRows}
+        cuotaAmount={summaryApplied}
+        totalToCollect={summaryTotal}
+        dailyRate={dailyRate}
+        confirming={savePayment.isPending}
+      />
 
       {/* Modal de emisión de documento */}
       <Modal

@@ -72,6 +72,12 @@ export default function PaymentDetailPage() {
     );
   }
 
+  const totalApplied = payment.allocations.reduce((s, a) => s + a.allocated_amount, 0);
+  const moraAmount = payment.late_interest_amount || 0;
+  const moraDays = payment.late_interest_days || 0;
+  const moraWaived = !!payment.late_interest_waived;
+  const hasMora = moraAmount > 0;
+
   return (
     <div>
       <PageHeader
@@ -96,7 +102,7 @@ export default function PaymentDetailPage() {
       {/* Resumen */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Monto"
+          label="Monto cobrado"
           value={formatSoles(payment.amount)}
           icon={<ReceiptText className="h-5 w-5" />}
           accent="#0d7a44"
@@ -129,26 +135,29 @@ export default function PaymentDetailPage() {
           <dl className="grid gap-3 sm:grid-cols-2">
             <InfoItem label="Propietario" value={payment.payer_name} />
             <InfoItem label="Contrato" value={payment.contract_number} />
-            <InfoItem label="Monto" value={formatSoles(payment.amount)} />
+            <InfoItem label="Monto cobrado" value={formatSoles(payment.amount)} />
+            <InfoItem label="Aplicado a cuotas" value={formatSoles(totalApplied)} />
             <InfoItem label="Fecha de pago" value={formatDate(payment.payment_date)} />
             <InfoItem label="Método" value={PAYMENT_METHODS[payment.payment_method as keyof typeof PAYMENT_METHODS] || payment.payment_method} />
             <InfoItem label="Transacción" value={payment.transaction_number || "—"} />
             <InfoItem label="Banco" value={payment.bank_name || "—"} />
             <InfoItem label="Observaciones" value={payment.notes || "—"} />
-            {payment.late_interest_days ? (
+            {moraWaived || hasMora ? (
               <>
                 <InfoItem
-                  label="Días de atraso"
+                  label="Días de atraso (máx.)"
                   value={
-                    payment.late_interest_waived
-                      ? `${payment.late_interest_days} (exonerado)`
-                      : payment.late_interest_days
+                    moraWaived
+                      ? `${moraDays} ${moraDays === 1 ? "día" : "días"} (exonerado)`
+                      : `${moraDays} ${moraDays === 1 ? "día" : "días"}`
                   }
                 />
                 <InfoItem
                   label="Interés de mora"
                   value={
-                    payment.late_interest_waived ? "Exonerado" : formatSoles(payment.late_interest_amount || 0)
+                    moraWaived
+                      ? "Exonerado"
+                      : formatSoles(moraAmount)
                   }
                 />
               </>
@@ -156,6 +165,54 @@ export default function PaymentDetailPage() {
               <InfoItem label="Interés de mora" value="Sin atraso" />
             )}
           </dl>
+
+          {hasMora && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">
+                    Interés de mora cobrado
+                  </p>
+                  <p className="mt-0.5 text-xs text-amber-700">
+                    {moraDays} {moraDays === 1 ? "día" : "días"} de atraso · incluido en
+                    el monto cobrado
+                  </p>
+                </div>
+                <span className="text-lg font-bold text-amber-700">
+                  {formatSoles(moraAmount)}
+                </span>
+              </div>
+            </div>
+          )}
+          {moraWaived && moraDays > 0 && !hasMora && (
+            <div className="mt-4 rounded-xl border border-netland-muted/20 bg-netland-light/40 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-netland-dark">
+                    Mora exonerada
+                  </p>
+                  <p className="mt-0.5 text-xs text-netland-muted">
+                    {moraDays} {moraDays === 1 ? "día" : "días"} de atraso sin cargo de
+                    recargo
+                  </p>
+                </div>
+                <span className="text-lg font-bold text-netland-muted">S/ 0.00</span>
+              </div>
+            </div>
+          )}
+          {!moraWaived &&
+            !hasMora &&
+            payment.allocations.some((a) => a.due_date < payment.payment_date) && (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-sm font-semibold text-amber-900">
+                  Pago registrado sin interés de mora
+                </p>
+                <p className="mt-0.5 text-xs text-amber-700">
+                  Este pago se registró sin cargo de mora, aunque al pagar ya había
+                  cuotas vencidas. Los pagos nuevos calculan la mora automáticamente.
+                </p>
+              </div>
+            )}
 
           {payment.receipt_url && (
             <div className="mt-4">
@@ -216,6 +273,28 @@ export default function PaymentDetailPage() {
                     </td>
                   </tr>
                 ))}
+              <tr className="border-t-2 border-netland-light bg-netland-light/40 font-semibold text-netland-dark">
+                <td className="px-5 py-2.5" colSpan={2}>
+                  Total aplicado a cuotas
+                </td>
+                <td className="px-5 py-2.5 text-sm">
+                  {moraWaived || hasMora
+                    ? `${moraDays} ${moraDays === 1 ? "día" : "días"}`
+                    : "—"}
+                </td>
+                <td className="px-5 py-2.5 text-sm">
+                  {hasMora ? formatSoles(moraAmount) : moraWaived ? "Exonerado" : "—"}
+                </td>
+                <td className="px-5 py-2.5">{formatSoles(totalApplied)}</td>
+              </tr>
+              {hasMora && (
+                <tr className="bg-amber-50 font-bold text-amber-900">
+                  <td className="px-5 py-2.5" colSpan={4}>
+                    Monto cobrado (cuotas + mora)
+                  </td>
+                  <td className="px-5 py-2.5">{formatSoles(payment.amount)}</td>
+                </tr>
+              )}
             </Table>
           )}
         </Card>

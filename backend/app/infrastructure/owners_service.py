@@ -474,9 +474,16 @@ class FinancingService:
 class PaymentsService:
     """Servicio para pagos y distribución"""
 
+    # Regla de negocio: S/ 10.00 por día de atraso cuando no hay configuración.
+    DEFAULT_LATE_INTEREST_DAILY = Decimal("10.00")
+
     @staticmethod
     def get_late_interest_daily(db: Session) -> Decimal:
-        """Monto diario fijo (S/) de interés por mora configurado en el sistema."""
+        """Monto diario fijo (S/) de interés por mora configurado en el sistema.
+
+        Regla de negocio: S/ 10.00 por día de atraso por defecto.
+        Si se configura un valor, ese prevalece; colocar 0 desactiva la mora.
+        """
         from app.domain.models import SiteConfig
         cfg = db.query(SiteConfig).filter(
             SiteConfig.key == "late_interest_daily"
@@ -484,11 +491,10 @@ class PaymentsService:
         if cfg and cfg.value and cfg.value.strip():
             try:
                 value = Decimal(str(cfg.value))
-                if value > 0:
-                    return value
+                return value if value > 0 else Decimal("0.00")
             except Exception:
-                return Decimal("0.00")
-        return Decimal("0.00")
+                return PaymentsService.DEFAULT_LATE_INTEREST_DAILY
+        return PaymentsService.DEFAULT_LATE_INTEREST_DAILY
 
     @staticmethod
     def register_payment(
@@ -534,7 +540,7 @@ class PaymentsService:
                 applied_sum = Decimal("0.00")
                 excess = Decimal("0.00")
                 for alloc in allocations:
-                    alloc_amount = Decimal(str(alloc["amount"]))
+                    alloc_amount = Decimal(str(alloc["amount"])).quantize(Decimal("0.01"))
                     applied_sum += alloc_amount
                     excess += PaymentsService._allocate_to_installment(
                         db, payment.id, alloc["installment_id"], alloc_amount
@@ -542,17 +548,36 @@ class PaymentsService:
 
                 # Propagar el remanente del pago (lo que supera las cuotas marcadas)
                 # y el excedente de cada cuota a las siguientes cuotas pendientes.
-                remaining = payment.amount - applied_sum + excess
+                remaining = (payment.amount - applied_sum + excess).quantize(Decimal("0.01"))
+                if remaining < Decimal("0.01"):
+                    remaining = Decimal("0.00")
                 if remaining > 0:
                     PaymentsService._distribute_amount(db, payment, remaining)
             else:
                 # Distribución automática (cuota más antigua pendiente)
                 PaymentsService._auto_allocate_payment(db, payment)
 
+            # Insertar las asignaciones antes de calcular la mora.
+            # La sesión usa autoflush=False, así que sin el flush la consulta
+            # de _compute_late_interest no ve las asignaciones recién creadas.
+            db.flush()
+
             # Calcular el interés por mora de las cuotas atendidas
             PaymentsService._compute_late_interest(
                 db, payment, exonerate_late_interest=exonerate_late_interest
             )
+
+            # Si no se exonera, la mora se suma al monto total cobrado.
+            # El monto ingresado se aplicó a las cuotas; la mora es adicional
+            # y queda registrada en late_interest_amount para control.
+            if (
+                not exonerate_late_interest
+                and payment.late_interest_amount
+                and payment.late_interest_amount > 0
+            ):
+                payment.amount = (payment.amount + payment.late_interest_amount).quantize(
+                    Decimal("0.01")
+                )
 
         db.commit()
         db.refresh(payment)
@@ -567,8 +592,8 @@ class PaymentsService:
         """Registra los días de atraso y el interés por mora de cada cuota atendida.
 
         El interés diario fijo (S/) se aplica desde la fecha de vencimiento de la
-        cuota hasta la fecha del pago. El monto del pago no se descuenta: el interés
-        queda registrado en el pago para control y referencia del cobrador.
+        cuota hasta la fecha del pago. La mora queda en ``late_interest_amount`` y,
+        cuando no se exonera, ``register_payment`` la suma al monto total cobrado.
         """
         daily = PaymentsService.get_late_interest_daily(db)
         allocs = db.query(PaymentAllocation).filter(
@@ -617,12 +642,15 @@ class PaymentsService:
         if not installment:
             raise ValueError(f"Cuota {installment_id} no encontrada")
 
+        # Redondear a céntimos para evitar residuos de precisión (ej. 4.1E-14)
+        amount = amount.quantize(Decimal("0.01"))
+        if amount <= 0:
+            return Decimal("0.00")
+
         # Limitar el monto al saldo pendiente de la cuota
         applied = min(amount, installment.balance)
-        excess = amount - applied
-
         if applied <= 0:
-            return excess
+            return amount
 
         # Crear asignación
         allocation = PaymentAllocation(
@@ -634,7 +662,9 @@ class PaymentsService:
 
         # Actualizar cuota
         installment.paid_amount += applied
-        installment.balance = installment.scheduled_amount - installment.paid_amount
+        installment.balance = (installment.scheduled_amount - installment.paid_amount).quantize(
+            Decimal("0.01")
+        )
 
         # Actualizar estado
         if installment.balance <= 0:
@@ -653,7 +683,7 @@ class PaymentsService:
             if financing.outstanding_balance < 0:
                 financing.outstanding_balance = Decimal("0.00")
 
-        return excess
+        return amount - applied
 
     @staticmethod
     def _distribute_amount(db: Session, payment: Payment, amount: Decimal):
@@ -680,6 +710,14 @@ class PaymentsService:
         remaining_amount = amount
 
         for installment in pending_installments:
+            if remaining_amount < Decimal("0.01"):
+                break
+
+            # Ignorar cuotas con saldo que no alcanza un céntimo
+            if installment.balance < Decimal("0.01"):
+                continue
+
+            remaining_amount = remaining_amount.quantize(Decimal("0.01"))
             if remaining_amount <= 0:
                 break
 
@@ -692,6 +730,7 @@ class PaymentsService:
             )
 
             remaining_amount -= amount_to_apply - excess
+            remaining_amount = remaining_amount.quantize(Decimal("0.01"))
 
     @staticmethod
     def _auto_allocate_payment(db: Session, payment: Payment):

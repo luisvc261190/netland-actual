@@ -20,7 +20,7 @@ const DEFAULT_COMPANY: SiteConfig = {
   company_address:
     "Urb. Magisterial Mza. B Lote. 3, (cerca al Grifo Primax) - San Vicente de Cañete, Cañete, Lima, Perú",
   company_bank_accounts: "",
-  late_interest_daily: "0.00",
+  late_interest_daily: "10.00",
 };
 
 const PERUVIAN_BANKS = [
