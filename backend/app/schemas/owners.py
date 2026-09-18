@@ -549,6 +549,7 @@ class ContractDocumentResponse(BaseModel):
     description: Optional[str] = None
     file_url: Optional[str] = None
     file_size: Optional[int] = None
+    payment_id: Optional[int] = None
     uploaded_at: datetime
 
     class Config:

@@ -686,13 +686,23 @@ class ContractDocument(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     uploaded_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
+    # Pago asociado (cuando el documento es la boleta/factura de un pago)
+    payment_id = Column(
+        Integer,
+        ForeignKey("payments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
     # Relaciones
     contract = relationship("Contract", back_populates="documents")
+    payment = relationship("Payment")
 
     # Constraints
     __table_args__ = (
         Index("ix_contract_docs_contract", "contract_id"),
         Index("ix_contract_docs_type", "document_type"),
+        Index("ix_contract_docs_payment", "payment_id"),
     )
 
 

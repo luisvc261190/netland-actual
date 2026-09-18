@@ -29,6 +29,7 @@ _COLUMN_MIGRATIONS = [
     ("payment_allocations", "late_days", "INTEGER NOT NULL DEFAULT 0"),
     ("payment_allocations", "late_interest", "NUMERIC(12,2) NOT NULL DEFAULT 0"),
     ("projects", "bank_accounts", "JSON NOT NULL DEFAULT '[]'"),
+    ("contract_documents", "payment_id", "INTEGER NULL"),
 ]
 
 

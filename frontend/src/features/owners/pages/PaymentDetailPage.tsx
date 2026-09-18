@@ -1,24 +1,47 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
-import { ArrowLeft, XCircle, Download, ReceiptText } from "lucide-react";
-import { api } from "../../../lib/api";
+import { ArrowLeft, XCircle, Download, ReceiptText, FilePlus2 } from "lucide-react";
+import { api, authStorage } from "../../../lib/api";
+import { API_URL } from "../../../lib/constants";
 import {
   PageHeader,
   Button,
   Card,
   Table,
   StatCard,
+  Field,
+  Select,
+  Input,
+  Badge,
 } from "../../admin/ui";
 import { useToast } from "../../../components/ui/Toast";
 import { CoreSpinLoader } from "../../../components/ui/CoreSpinLoader";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { Modal } from "../../../components/ui/Modal";
 import type { PaymentDetail } from "../types";
 import {
   PAYMENT_METHODS,
   formatSoles,
   formatDate,
 } from "../constants";
+
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  proforma: "Proforma",
+  boleta: "Boleta",
+  factura: "Factura",
+};
+
+interface EmittedDocument {
+  id: number;
+  document_name: string;
+  document_type: string;
+  description?: string | null;
+  file_url?: string | null;
+  file_size?: number | null;
+  uploaded_at: string;
+  payment_id?: number | null;
+}
 
 export default function PaymentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,12 +50,26 @@ export default function PaymentDetailPage() {
   const { toast } = useToast();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [emitOpen, setEmitOpen] = useState(false);
+  const [emitForm, setEmitForm] = useState({
+    document_type: "boleta",
+    description: "",
+  });
 
   const { data: payment, isLoading } = useQuery({
     queryKey: ["payment", paymentId],
     queryFn: ({ signal }) => api.get<PaymentDetail>(`/payments/${paymentId}`, true, signal),
     enabled: !!paymentId,
   });
+
+  const { data: emittedDocs } = useQuery({
+    queryKey: ["contract-documents", payment?.contract_id],
+    queryFn: ({ signal }) =>
+      api.get<EmittedDocument[]>(`/contracts/${payment!.contract_id}/documents`, true, signal),
+    enabled: !!payment?.contract_id,
+  });
+
+  const paymentDocs = (emittedDocs || []).filter((d) => d.payment_id === paymentId);
 
   const cancelMutation = useMutation({
     mutationFn: () =>
@@ -44,6 +81,41 @@ export default function PaymentDetailPage() {
       toast("Pago anulado correctamente");
       setCancelOpen(false);
       setReason("");
+    },
+    onError: (e: Error) => toast(e.message, "error"),
+  });
+
+  const emitMutation = useMutation({
+    mutationFn: async (payload: { document_type: string; description?: string }) => {
+      const token = authStorage.getToken();
+      const response = await fetch(`${API_URL}/payments/${paymentId}/emit-document`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.detail || "Error al emitir el documento");
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^";]+)"?/);
+      const filename = match?.[1] || "documento.pdf";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contract-documents"] });
+      setEmitOpen(false);
+      setEmitForm({ document_type: "boleta", description: "" });
+      toast("Documento emitido correctamente");
     },
     onError: (e: Error) => toast(e.message, "error"),
   });
@@ -89,6 +161,12 @@ export default function PaymentDetailPage() {
               <ArrowLeft className="h-4 w-4" />
               Volver
             </Button>
+            {!payment.is_cancelled && (
+              <Button variant="outline" onClick={() => setEmitOpen(true)}>
+                <FilePlus2 className="h-4 w-4" />
+                Emitir boleta / factura
+              </Button>
+            )}
             {!payment.is_cancelled && (
               <Button variant="danger" onClick={() => setCancelOpen(true)}>
                 <XCircle className="h-4 w-4" />
@@ -309,6 +387,51 @@ export default function PaymentDetailPage() {
         </Link>
       </div>
 
+      {/* Comprobantes emitidos de este pago */}
+      <Card className="mb-6">
+        <h2 className="mb-4 font-display text-lg font-semibold text-netland-dark">
+          Comprobantes de este pago
+        </h2>
+        {paymentDocs.length === 0 ? (
+          <p className="text-sm text-netland-muted">
+            Aún no se emitieron boletas ni facturas para este pago. Usa el botón{" "}
+            <span className="font-medium">Emitir boleta / factura</span> para generar el
+            comprobante.
+          </p>
+        ) : (
+          <Table headers={["Tipo", "Documento", "Descripción", "Fecha", "Acciones"]}>
+            {paymentDocs.map((doc) => (
+              <tr key={doc.id} className="hover:bg-netland-light/30">
+                <td className="px-5 py-2.5">
+                  <Badge color="#0891b2">
+                    {DOCUMENT_TYPE_LABELS[doc.document_type] ?? doc.document_type}
+                  </Badge>
+                </td>
+                <td className="px-5 py-2.5 font-semibold text-netland-dark">
+                  {doc.document_name}
+                </td>
+                <td className="px-5 py-2.5 text-sm text-netland-muted">
+                  {doc.description || "—"}
+                </td>
+                <td className="px-5 py-2.5 text-sm">{formatDate(doc.uploaded_at)}</td>
+                <td className="px-5 py-2.5">
+                  {doc.file_url && (
+                    <Button
+                      variant="outline"
+                      className="!px-2.5 !py-1.5"
+                      title="Abrir documento"
+                      onClick={() => window.open(doc.file_url!, "_blank")}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </Table>
+        )}
+      </Card>
+
       {/* Modal de anulación */}
       {cancelOpen && (
         <div
@@ -348,6 +471,58 @@ export default function PaymentDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Modal de emisión de boleta/factura */}
+      <Modal
+        open={emitOpen}
+        onClose={() => setEmitOpen(false)}
+        title={`Emitir comprobante · Pago #${payment.id}`}
+      >
+        <div className="space-y-4 p-6">
+          <div className="rounded-xl border border-netland-light bg-netland-light/30 px-4 py-3 text-sm text-netland-dark">
+            Se emitirá el comprobante del{" "}
+            <span className="font-semibold">Pago #{payment.id}</span> por{" "}
+            <span className="font-semibold">{formatSoles(payment.amount)}</span> con las
+            cuotas y mora de ese pago.
+          </div>
+          <Field label="Tipo de documento">
+            <Select
+              value={emitForm.document_type}
+              onChange={(e) => setEmitForm({ ...emitForm, document_type: e.target.value })}
+            >
+              <option value="boleta">Boleta</option>
+              <option value="factura">Factura</option>
+            </Select>
+          </Field>
+          <Field label="Descripción (opcional)">
+            <Input
+              value={emitForm.description}
+              onChange={(e) => setEmitForm({ ...emitForm, description: e.target.value })}
+              placeholder={`Ej: Comprobante del Pago #${payment.id}`}
+            />
+          </Field>
+          {emitMutation.isError && (
+            <p className="text-sm text-red-600">
+              {emitMutation.error instanceof Error
+                ? emitMutation.error.message
+                : "Error al emitir el documento"}
+            </p>
+          )}
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setEmitOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => emitMutation.mutate(emitForm)}
+              disabled={emitMutation.isPending}
+            >
+              {emitMutation.isPending
+                ? "Emitiendo..."
+                : `Emitir y descargar · ${DOCUMENT_TYPE_LABELS[emitForm.document_type] ?? emitForm.document_type}`}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

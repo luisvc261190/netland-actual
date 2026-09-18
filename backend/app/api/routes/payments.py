@@ -3,9 +3,10 @@ API Routes para Pagos
 """
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.domain.models import User
@@ -17,9 +18,22 @@ from app.schemas.owners import (
     PaymentCancel,
     PaymentResponse,
     PaymentDetail,
+    ContractDocumentCreate,
 )
 
 router = APIRouter(prefix="/payments", tags=["payments"])
+
+
+_PAYMENT_METHOD_LABELS = {
+    "efectivo": "Efectivo",
+    "transferencia": "Transferencia",
+    "deposito": "Depósito",
+    "cheque": "Cheque",
+    "tarjeta": "Tarjeta",
+    "yape": "Yape",
+    "plin": "Plin",
+    "otro": "Otro",
+}
 
 
 @router.post("/", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
@@ -274,3 +288,212 @@ def get_payment_history(
         }
         for p in payments
     ]
+
+
+@router.post("/{payment_id}/emit-document", status_code=status.HTTP_201_CREATED)
+def emit_payment_document(
+    payment_id: int,
+    doc_data: ContractDocumentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Emite la proforma, boleta o factura de un pago específico y la descarga en PDF."""
+    from datetime import datetime
+
+    from sqlalchemy.orm import joinedload
+
+    from app.api.routes.contracts import (
+        _company_config,
+        _document_series,
+        _store_pdf,
+    )
+    from app.domain.owners_models import (
+        Contract,
+        ContractDocument,
+        PaymentAllocation,
+    )
+    from app.infrastructure.owners_service import ContractsService
+    from app.infrastructure.pdf_service import generate_commercial_document_pdf
+
+    if doc_data.document_type not in ("proforma", "boleta", "factura"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="document_type debe ser proforma, boleta o factura",
+        )
+
+    payment = (
+        db.query(Payment)
+        .options(
+            joinedload(Payment.payer),
+            joinedload(Payment.contract).joinedload(Contract.project),
+        )
+        .filter(Payment.id == payment_id)
+        .first()
+    )
+    if not payment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pago no encontrado",
+        )
+    if payment.is_cancelled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede emitir un documento de un pago anulado",
+        )
+
+    contract = payment.contract
+    detail = ContractsService.get_contract_detail(db, payment.contract_id)
+    payer = payment.payer
+
+    customer_name = (
+        f"{payer.first_name} {payer.paternal_surname}".strip()
+        if payer.person_type == "natural"
+        else (payer.business_name or "")
+    )
+    customer_document = f"{payer.document_type} {payer.document_number}".strip()
+
+    # Ítems del documento a partir de la aplicación del pago a cuotas
+    allocations = (
+        db.query(PaymentAllocation)
+        .filter(PaymentAllocation.payment_id == payment_id)
+        .order_by(PaymentAllocation.installment_id)
+        .all()
+    )
+
+    lot_description = (
+        f"Lote {detail['lot_code']} · {detail['project_name']}"
+        + (f"\nManzana: {detail['block_code'] or '—'} · Área: {float(contract.lot_area_m2):,.2f} m²" if contract.lot_area_m2 else "")
+    )
+
+    mora = float(payment.late_interest_amount or 0)
+    has_mora = mora > 0 and not payment.late_interest_waived
+
+    items = []
+    if allocations:
+        for alloc in allocations:
+            items.append({
+                "description": (
+                    f"Cuota {alloc.installment.installment_number:02d} · "
+                    f"vencimiento {alloc.installment.due_date.strftime('%d/%m/%Y')}"
+                ),
+                "amount": round(float(alloc.allocated_amount), 2),
+            })
+        if has_mora:
+            days = payment.late_interest_days or 0
+            items.append({
+                "description": (
+                    f"Interés por mora ({days} día{'s' if days != 1 else ''})"
+                ),
+                "amount": round(mora, 2),
+            })
+    else:
+        items.append({
+            "description": lot_description,
+            "amount": round(float(payment.amount or 0), 2),
+        })
+
+    total_amount = float(payment.amount or 0)
+
+    # Número de documento (serie por tipo, continuando la numeración del contrato)
+    if doc_data.document_number:
+        document_number = doc_data.document_number
+    else:
+        series = _document_series(doc_data.document_type)
+        existing = (
+            db.query(ContractDocument)
+            .filter(
+                ContractDocument.contract_id == payment.contract_id,
+                ContractDocument.document_type == doc_data.document_type,
+                ContractDocument.document_name.like(f"%{series}-%"),
+            )
+            .count()
+        )
+        document_number = f"{series}-{existing + 1:06d}"
+
+    company = _company_config(db)
+
+    # Incluir la cuenta bancaria del proyecto en el encabezado del documento
+    accounts = list(company["company_accounts"])
+    project = contract.project
+    if project:
+        if project.bank_accounts:
+            for acc in project.bank_accounts:
+                bank = (acc.get("bank") if isinstance(acc, dict) else getattr(acc, "bank", "")) or ""
+                account_number = (acc.get("account_number") if isinstance(acc, dict) else getattr(acc, "account_number", "")) or ""
+                if bank and account_number:
+                    accounts.append(f"{bank} - N° {account_number}")
+                elif account_number:
+                    accounts.append(f"N° de cuenta {account_number}")
+                elif bank:
+                    accounts.append(bank)
+        elif project.bank_name or project.bank_account_number:
+            if project.bank_name and project.bank_account_number:
+                accounts.append(f"{project.bank_name} - N° {project.bank_account_number}")
+            elif project.bank_account_number:
+                accounts.append(f"N° de cuenta {project.bank_account_number}")
+            else:
+                accounts.append(project.bank_name)
+
+    payment_date = payment.payment_date.strftime("%d/%m/%Y")
+    method_label = _PAYMENT_METHOD_LABELS.get(
+        payment.payment_method, str(payment.payment_method).capitalize()
+    )
+    note_lines = [f"Pago #{payment.id} del {payment_date} · {method_label}"]
+    if payment.transaction_number:
+        prefix = (payment.bank_name or "Banco").strip()
+        note_lines.append(f"{prefix} · Transacción {payment.transaction_number}")
+    if has_mora:
+        days = payment.late_interest_days or 0
+        note_lines.append(
+            f"Incluye interés de mora por {days} día{'s' if days != 1 else ''}: S/ {mora:,.2f}"
+        )
+    elif payment.late_interest_waived and (payment.late_interest_days or 0) > 0:
+        days = payment.late_interest_days or 0
+        note_lines.append(f"Mora exonerada ({days} día{'s' if days != 1 else ''}) — sin recargo")
+    if doc_data.description:
+        note_lines.append(doc_data.description)
+    note = "\n".join(note_lines[:3])
+
+    pdf = generate_commercial_document_pdf(
+        document_type=doc_data.document_type,
+        document_number=document_number,
+        company_name=settings.COMPANY_NAME,
+        company_ruc=company["company_ruc"],
+        company_address=company["company_address"],
+        company_razon_social=company["company_razon_social"],
+        company_accounts=accounts,
+        company_phone=settings.COMPANY_WHATSAPP,
+        customer_name=customer_name,
+        customer_document=customer_document,
+        issue_date=datetime.now().strftime("%d/%m/%Y"),
+        items=items,
+        total_amount=total_amount,
+        note=note,
+    )
+
+    file_url, public_id = _store_pdf(pdf, folder="contract_documents")
+
+    document = ContractDocument(
+        contract_id=payment.contract_id,
+        document_name=f"{doc_data.document_type}-{document_number}",
+        document_type=doc_data.document_type,
+        description=doc_data.description or f"Documento del pago #{payment.id}",
+        file_url=file_url,
+        file_public_id=public_id,
+        file_size=len(pdf),
+        payment_id=payment.id,
+        uploaded_by=current_user.id,
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        status_code=status.HTTP_201_CREATED,
+        headers={
+            "Content-Disposition": f'attachment; filename="{document_number}.pdf"',
+            "Cache-Control": "no-store",
+        },
+    )

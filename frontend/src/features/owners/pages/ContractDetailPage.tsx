@@ -71,6 +71,7 @@ interface ContractDocument {
   document_name: string;
   document_type: string;
   description?: string | null;
+  payment_id?: number | null;
   file_url?: string | null;
   file_size?: number | null;
   uploaded_at: string;
@@ -123,7 +124,11 @@ export default function ContractDetailPage() {
   const [moraConfirmOpen, setMoraConfirmOpen] = useState(false);
   const moraAccepted = useRef(false);
   const [emitOpen, setEmitOpen] = useState(false);
-  const [emitForm, setEmitForm] = useState({ document_type: "proforma", description: "" });
+  const [emitForm, setEmitForm] = useState<{
+    document_type: string;
+    description: string;
+    payment_id: string;
+  }>({ document_type: "proforma", description: "", payment_id: "" });
   const [refinanceOpen, setRefinanceOpen] = useState(false);
   const [refinanceForm, setRefinanceForm] = useState({
     start_date: new Date().toISOString().split("T")[0],
@@ -267,19 +272,30 @@ export default function ContractDetailPage() {
 
   // Emitir documento comercial
   const emitDocument = useMutation({
-    mutationFn: async (payload: { document_type: string; description?: string }) => {
+    mutationFn: async (payload: {
+      document_type: string;
+      description?: string;
+      payment_id?: string;
+    }) => {
       const token = authStorage.getToken();
-      const response = await fetch(`${API_URL}/contracts/${contractId}/emit-document`, {
+      const body = {
+        document_type: payload.document_type,
+        description: payload.description || undefined,
+      };
+      const path = payload.payment_id
+        ? `/payments/${payload.payment_id}/emit-document`
+        : `/contracts/${contractId}/emit-document`;
+      const response = await fetch(`${API_URL}${path}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.detail || "Error al emitir el documento");
+        const body2 = await response.json().catch(() => null);
+        throw new Error(body2?.detail || "Error al emitir el documento");
       }
       const blob = await response.blob();
       const disposition = response.headers.get("Content-Disposition") || "";
@@ -296,7 +312,7 @@ export default function ContractDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["contract-documents"] });
       toast("Documento emitido correctamente");
       setEmitOpen(false);
-      setEmitForm({ document_type: "proforma", description: "" });
+      setEmitForm({ document_type: "proforma", description: "", payment_id: "" });
     },
     onError: (e: Error) => toast(e.message, "error"),
   });
@@ -1202,12 +1218,46 @@ export default function ContractDetailPage() {
                   )}
                 </td>
                 <td className="px-5 py-2.5">
-                  <Link
-                    to={`/admin/pagos/${p.id}`}
-                    className="text-sm font-medium text-netland-primary hover:underline"
-                  >
-                    Ver detalle
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      to={`/admin/pagos/${p.id}`}
+                      className="text-sm font-medium text-netland-primary hover:underline"
+                    >
+                      Ver detalle
+                    </Link>
+                    {!p.is_cancelled && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={emitDocument.isPending}
+                          className="text-sm font-medium text-netland-dark underline-offset-2 hover:underline disabled:opacity-50"
+                          title={`Emitir boleta del pago #${p.id}`}
+                          onClick={() =>
+                            emitDocument.mutate({
+                              document_type: "boleta",
+                              payment_id: String(p.id),
+                            })
+                          }
+                        >
+                          Boleta
+                        </button>
+                        <button
+                          type="button"
+                          disabled={emitDocument.isPending}
+                          className="text-sm font-medium text-netland-dark underline-offset-2 hover:underline disabled:opacity-50"
+                          title={`Emitir factura del pago #${p.id}`}
+                          onClick={() =>
+                            emitDocument.mutate({
+                              document_type: "factura",
+                              payment_id: String(p.id),
+                            })
+                          }
+                        >
+                          Factura
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1232,7 +1282,16 @@ export default function ContractDetailPage() {
                 <td className="px-5 py-2.5">
                   <Badge color="#0891b2">{DOCUMENT_TYPE_LABELS[doc.document_type] ?? doc.document_type}</Badge>
                 </td>
-                <td className="px-5 py-2.5 font-semibold text-netland-dark">{doc.document_name}</td>
+                <td className="px-5 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-netland-dark">{doc.document_name}</span>
+                    {doc.payment_id ? (
+                      <Badge color="#7c3aed">Pago #{doc.payment_id}</Badge>
+                    ) : (
+                      <Badge color="#64748b">Lote</Badge>
+                    )}
+                  </div>
+                </td>
                 <td className="px-5 py-2.5 text-sm text-netland-muted">{doc.description || "—"}</td>
                 <td className="px-5 py-2.5 text-sm">{doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} KB` : "—"}</td>
                 <td className="px-5 py-2.5 text-sm">{formatDate(doc.uploaded_at)}</td>
@@ -1567,21 +1626,77 @@ export default function ContractDetailPage() {
         title={`Emitir documento · ${contract.contract_number}`}
       >
         <div className="space-y-4 p-6">
+          <Field
+            label="Pago a detallar"
+            hint="Elige un pago para emitir su boleta/factura, o déjalo en «Contrato» para el documento del lote."
+          >
+            <Select
+              value={emitForm.payment_id}
+              onChange={(e) =>
+                setEmitForm({
+                  ...emitForm,
+                  payment_id: e.target.value,
+                  document_type:
+                    e.target.value && emitForm.document_type === "proforma"
+                      ? "boleta"
+                      : emitForm.document_type,
+                })
+              }
+            >
+              <option value="">
+                Contrato · documento del lote
+              </option>
+              {(payments || [])
+                .filter((p) => !p.is_cancelled)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    Pago #{p.id} · {formatDate(p.payment_date)} · {formatSoles(p.amount)}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+          {emitForm.payment_id && (
+            <div className="rounded-xl border border-netland-light bg-netland-light/30 px-4 py-3 text-sm text-netland-dark">
+              Se emitirá la{" "}
+              <span className="font-semibold">
+                {DOCUMENT_TYPE_LABELS[emitForm.document_type] ?? emitForm.document_type}
+              </span>{" "}
+              del{" "}
+              <span className="font-semibold">
+                Pago #
+                {emitForm.payment_id}
+              </span>{" "}
+              con los montos y cuotas de ese pago.
+            </div>
+          )}
           <Field label="Tipo de documento">
             <Select
               value={emitForm.document_type}
               onChange={(e) => setEmitForm({ ...emitForm, document_type: e.target.value })}
             >
-              <option value="proforma">Proforma</option>
-              <option value="boleta">Boleta</option>
-              <option value="factura">Factura</option>
+              {emitForm.payment_id ? (
+                <>
+                  <option value="boleta">Boleta</option>
+                  <option value="factura">Factura</option>
+                </>
+              ) : (
+                <>
+                  <option value="proforma">Proforma</option>
+                  <option value="boleta">Boleta</option>
+                  <option value="factura">Factura</option>
+                </>
+              )}
             </Select>
           </Field>
           <Field label="Descripción (opcional)">
             <Input
               value={emitForm.description}
               onChange={(e) => setEmitForm({ ...emitForm, description: e.target.value })}
-              placeholder="Ej: Cuota inicial 30%"
+              placeholder={
+                emitForm.payment_id
+                  ? `Ej: Comprobante del Pago #${emitForm.payment_id}`
+                  : "Ej: Cuota inicial 30%"
+              }
             />
           </Field>
           <div className="flex justify-end gap-3">
@@ -1589,7 +1704,11 @@ export default function ContractDetailPage() {
               Cancelar
             </Button>
             <Button onClick={() => emitDocument.mutate(emitForm)} disabled={emitDocument.isPending}>
-              {emitDocument.isPending ? "Emitiendo..." : "Emitir y descargar"}
+              {emitDocument.isPending
+                ? "Emitiendo..."
+                : emitForm.payment_id
+                  ? `Emitir y descargar · Pago #${emitForm.payment_id}`
+                  : "Emitir y descargar"}
             </Button>
           </div>
         </div>
